@@ -315,7 +315,8 @@ module axi_llc_tag_store #(
     assign tag_cmpt[i] = ram_rdata.cmpt;   // indicates which tags are busy computing
 
     // hit detection
-    assign hit[i]        = req_q.indicator[i] & tag_val[i] & tag_equ[i];
+    // Never hit on a line that is busy computing
+    assign hit[i]        = req_q.indicator[i] & tag_val[i] & tag_equ[i] & ~tag_cmpt[i];
     // BIST also add the two bits of valid and dirty
     // TODO: also and wit check on cmpt (CHECK if needed)
     assign bist_res[i]   = ram_compared.val & ram_compared.dit & ram_compared.cmpt & tag_equ[i];
@@ -358,7 +359,6 @@ module axi_llc_tag_store #(
   way_ind_t evict_way_ind;
   logic     evict_flag;
 
-  // TODO: URGENT add inp[ut to this module to support busy cmpt
   axi_llc_evict_box #(
     .Cfg       ( Cfg       ),
     .way_ind_t ( way_ind_t )
@@ -368,7 +368,7 @@ module axi_llc_tag_store #(
     .req_i       ( evict_req     ),
     .tag_valid_i ( tag_val       ),
     .tag_dirty_i ( tag_dit       ),
-    //.tag_busy_i  ( tag_cmpt      ),
+    .tag_cmpt_i  ( tag_cmpt      ),
     .spm_lock_i  ( spm_lock_i    ),
     .way_ind_o   ( evict_way_ind ),
     .evict_o     ( evict_flag    ),

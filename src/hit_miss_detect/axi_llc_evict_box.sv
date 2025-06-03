@@ -25,6 +25,8 @@ module axi_llc_evict_box #(
   input  way_ind_t tag_valid_i,
   /// All dirty flags as input. This indicates us if we have to write back the data.
   input  way_ind_t tag_dirty_i,
+  // All busy cmpt flags as input. These lines cannot be used for eviction, as they are currently busy.
+  input  way_ind_t tag_cmpt_i,
   /// All SPM configured ways. So that the output indicator does not point to a SPM way.
   input  way_ind_t spm_lock_i,
   /// Way indicator for action to be performed. Is a onehot signal.
@@ -40,7 +42,8 @@ module axi_llc_evict_box #(
   logic     en_cnt;                     // enables the counter for 'randomness'
   way_ind_t onehot_ind_q, onehot_ind_d; // counter output converted to onehot
 
-  assign occupied = tag_valid_i | spm_lock_i;
+  // There might be busy cmpt lines which are not in a valid state
+  assign occupied = tag_valid_i | spm_lock_i | tag_cmpt_i; 
   // hold the output (stop the counter) if we have a request and we have valid output
   assign en_cnt   = ~(req_i && valid_o);
 
@@ -57,7 +60,8 @@ module axi_llc_evict_box #(
     if (req_i) begin
       // all ways have something in them, evict a not spm way
       if (occupied == '1) begin
-        if ((spm_lock_i & onehot_ind_q) == '0) begin
+        if ((spm_lock_i & onehot_ind_q) == '0 &&
+            (tag_cmpt_i & onehot_ind_q) =='0) begin
           way_ind_o = onehot_ind_q;
           valid_o   = 1'b1;
           // check if we have to evict the old tag, it is dirty
@@ -97,5 +101,6 @@ module axi_llc_evict_box #(
   check_onehot: assert property ( @(posedge clk_i) disable iff (~rst_ni) $onehot0(way_ind_o)) else
       $fatal(1, "More than two bit set in the one-hot signal");
   `endif
+  // TODO: add assertion to check that busy cmpt lines are never picked
   // pragma translate_on
 endmodule
