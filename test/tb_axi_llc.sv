@@ -506,14 +506,14 @@ module tb_axi_llc #(
           count[0] = count[0] + llc_events.aw_slv_transfer.num_bytes;
           count[1] = count[1] + 64'd1;
           if ((count[1]%PrintCycles == 0) && enable_progress) begin
-            $display("%0t> AW transaction: %d", $time(), count[1]);
+            $display("%0t> AW transaction: %d", $time, count[1]);
           end
         end
         if (llc_events.ar_slv_transfer.active) begin
           count[2] = count[2] + llc_events.ar_slv_transfer.num_bytes;
           count[3] = count[3] + 64'd1;
           if ((count[3]%PrintCycles == 0) && enable_progress) begin
-            $display("%0t> AR transaction: %d", $time(), count[3]);
+            $display("%0t> AR transaction: %d", $time, count[3]);
           end
         end
         if (llc_events.aw_bypass_transfer.active) begin
