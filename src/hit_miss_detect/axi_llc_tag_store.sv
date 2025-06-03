@@ -67,13 +67,16 @@ module axi_llc_tag_store #(
   typedef logic [Cfg.TagLength-1:0]   tag_t;
 
   // typedef to have consistent tag data (that what gets written into the sram)
-  localparam int unsigned TagDataLen = Cfg.TagLength + 32'd2;
+  // valid, dirty and busy(cmpt) bits (+3)
+  localparam int unsigned TagDataLen = Cfg.TagLength + 32'd3;
   /// Packed struct for the data stored in the memory macros.
   typedef struct packed {
     /// The tag stored is valid.
     logic val;
     /// The tag stored is dirty.
     logic dit;
+    /// The line is busy computing (tag is to be considered invalid).
+    logic cmpt;
     /// The stored tag itself.
     tag_t tag;
   } tag_data_t;
@@ -102,7 +105,7 @@ module axi_llc_tag_store #(
   way_ind_t   ram_rvalid,  ram_rvalid_q, ram_rvalid_d;
   logic       lock_rvalid;
   // Hit indication signals
-  way_ind_t   hit, tag_val, tag_dit,     tag_equ;
+  way_ind_t   hit, tag_val, tag_dit, tag_cmpt,   tag_equ;
   tag_data_t  [Cfg.SetAssociativity-1:0] stored_tag;
   // Binary representation of the selected output indicator
   bin_ind_t   bin_ind;
@@ -176,6 +179,7 @@ module axi_llc_tag_store #(
                   ram_wdata = tag_data_t'{
                                 val: 1'b1,
                                 dit: 1'b1,
+                                cmpt: 1'b0,
                                 tag: req_q.tag
                               };
                   switch_busy = 1'b1;
@@ -201,6 +205,7 @@ module axi_llc_tag_store #(
                 ram_wdata = tag_data_t'{
                               val: 1'b1,
                               dit: req_q.dirty,
+                              cmpt: 1'b0,
                               tag: req_q.tag
                             };
                 // Go back to idle.
@@ -301,16 +306,19 @@ module axi_llc_tag_store #(
     assign ram_compared = tag_data_t'{
           val: bist_pattern.val,
           dit: bist_pattern.dit,
+          cmpt: bist_pattern.cmpt,
           tag: (req_q.mode == axi_llc_pkg::Bist) ? bist_pattern.tag : req_q.tag
         } ~^ ram_rdata;
     assign tag_equ[i] = &ram_compared.tag; // valid if the stored tag equals the one looked up
     assign tag_val[i] = ram_rdata.val;     // indicates where valid values are in the line
     assign tag_dit[i] = ram_rdata.dit;     // indicates which tags are dirty
+    assign tag_cmpt[i] = ram_rdata.cmpt;   // indicates which tags are busy computing
 
     // hit detection
     assign hit[i]        = req_q.indicator[i] & tag_val[i] & tag_equ[i];
     // BIST also add the two bits of valid and dirty
-    assign bist_res[i]   = ram_compared.val & ram_compared.dit & tag_equ[i];
+    // TODO: also and wit check on cmpt (CHECK if needed)
+    assign bist_res[i]   = ram_compared.val & ram_compared.dit & ram_compared.cmpt & tag_equ[i];
     // assignment to wide output signal that goes to the tag output mux
     assign stored_tag[i] = ram_rdata;
   end
@@ -350,6 +358,7 @@ module axi_llc_tag_store #(
   way_ind_t evict_way_ind;
   logic     evict_flag;
 
+  // TODO: URGENT add inp[ut to this module to support busy cmpt
   axi_llc_evict_box #(
     .Cfg       ( Cfg       ),
     .way_ind_t ( way_ind_t )
@@ -359,6 +368,7 @@ module axi_llc_tag_store #(
     .req_i       ( evict_req     ),
     .tag_valid_i ( tag_val       ),
     .tag_dirty_i ( tag_dit       ),
+    //.tag_busy_i  ( tag_cmpt      ),
     .spm_lock_i  ( spm_lock_i    ),
     .way_ind_o   ( evict_way_ind ),
     .evict_o     ( evict_flag    ),
@@ -433,5 +443,6 @@ module axi_llc_tag_store #(
       ((flushed_i == {Cfg.SetAssociativity{1'b1}}) |-> (evict_req == 1'b0))) else
       $fatal(1, "Should not have a request for the evict box, if all ways are flushed!");
   `endif
+  // TODO: add assertion to verify busy state
   // pragma translate_on
 endmodule

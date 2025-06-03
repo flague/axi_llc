@@ -94,6 +94,7 @@ module axi_llc_hit_miss #(
   typedef logic [Cfg.TagLength-1:0]        tag_t;
 
   /// Request struct to the tag storage.
+  // TODO: check if busy has to be added also here
   typedef struct packed {
     /// The request mode. What operation the tag storage should perform with the request.
     axi_llc_pkg::tag_mode_e mode;
