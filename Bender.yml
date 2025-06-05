@@ -44,6 +44,9 @@ sources:
   - src/axi_llc_refill_unit.sv
   - src/axi_llc_ways.sv
   - src/hit_miss_detect/axi_llc_tag_store.sv
+  - src/axi_llc_status_reg_pkg.sv
+  - src/axi_llc_status_reg_top.sv
+  - src/axi_llc_status_reg_wrap.sv
   # Level 2
   - src/axi_llc_config.sv
   - src/axi_llc_hit_miss.sv
@@ -56,6 +59,8 @@ sources:
   - target: test
     include_dirs:
       - test
+    defines:
+      ARCANE_LLC: true
     files:
       # Level 0:
       - test/tb_axi_llc.sv

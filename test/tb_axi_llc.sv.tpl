@@ -10,17 +10,17 @@
 /// Testbench for the module `axi_llc_top`.
 module tb_axi_llc #(
   /// Set Associativity of the LLC
-  parameter int unsigned TbSetAssociativity = 32'd8,
+  parameter int unsigned TbSetAssociativity = 32'd${cache_num_ways},
   /// Number of cache lines of the LLC
-  parameter int unsigned TbNumLines         = 32'd256,
+  parameter int unsigned TbNumLines         = 32'd${cache_num_sets},
   /// Number of Blocks per cache line
-  parameter int unsigned TbNumBlocks        = 32'd8,
+  parameter int unsigned TbNumBlocks        = 32'd${cache_block_size},
   /// ID width of the Full AXI slave port, master port has ID `AxiIdWidthFull + 32'd1`
   parameter int unsigned TbAxiIdWidthFull   = 32'd6,
   /// Address width of the full AXI bus
   parameter int unsigned TbAxiAddrWidthFull = 32'd32,
   /// Data width of the full AXI bus
-  parameter int unsigned TbAxiDataWidthFull = 32'd128,
+  parameter int unsigned TbAxiDataWidthFull = 32'd${cache_word_size},
   /// Width of the Registers
   parameter int unsigned TbRegWidth         = 32'd64,
   /// Number of random write transactions in a testblock.
@@ -44,7 +44,8 @@ module tb_axi_llc #(
 
   localparam int unsigned TbAxiStrbWidthFull = TbAxiDataWidthFull / 32'd8;
   localparam int unsigned TbAxiUserWidthFull = 32'd1;
- // Need a master and a slave ID type, as the master ID is one bit wider 
+  
+  // Need a master and a slave ID type, as the master ID is one bit wider 
   typedef logic [TbAxiIdWidthFull-1:0]     axi_slv_id_t;
   typedef logic [TbAxiIdWidthFull:0]       axi_mst_id_t;
   typedef logic [TbAxiAddrWidthFull-1:0]   axi_addr_t;
@@ -62,12 +63,12 @@ module tb_axi_llc #(
   `AXI_TYPEDEF_AR_CHAN_T(axi_mst_ar_t, axi_addr_t, axi_mst_id_t, axi_user_t)
   `AXI_TYPEDEF_R_CHAN_T(axi_slv_r_t, axi_data_t, axi_slv_id_t, axi_user_t)
   `AXI_TYPEDEF_R_CHAN_T(axi_mst_r_t, axi_data_t, axi_mst_id_t, axi_user_t)
-
+  // Reg interface typedef
   `AXI_TYPEDEF_REQ_T(axi_slv_req_t, axi_slv_aw_t, axi_w_t, axi_slv_ar_t)
   `AXI_TYPEDEF_RESP_T(axi_slv_resp_t, axi_slv_b_t, axi_slv_r_t)
   `AXI_TYPEDEF_REQ_T(axi_mst_req_t, axi_mst_aw_t, axi_w_t, axi_mst_ar_t)
   `AXI_TYPEDEF_RESP_T(axi_mst_resp_t, axi_mst_b_t, axi_mst_r_t)
-  // Reg interface typedef
+
   `REG_BUS_TYPEDEF_ALL(conf, logic [31:0], logic [31:0], logic [3:0])
 
   typedef logic [7:0] byte_t;
@@ -246,7 +247,7 @@ module tb_axi_llc #(
 
   `REG_BUS_ASSIGN_TO_REQ(reg_cfg_req, reg_cfg_intf)
   `REG_BUS_ASSIGN_FROM_RSP(reg_cfg_intf, reg_cfg_rsp)
-
+  
   /////////////////////////
   // Clock and Reset gen //
   /////////////////////////

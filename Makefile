@@ -4,11 +4,27 @@
 
 # Author: Thomas Benz <tbenz@iis.ee.ethz.ch>
 
-BENDER ?= bender
+BENDER ?= ./bender
 PYTHON ?= python3
 
 REGGEN_PATH  = $(shell $(BENDER) path register_interface)/vendor/lowrisc_opentitan/util/regtool.py
 REGGEN	     = $(PYTHON) $(REGGEN_PATH)
+
+# Directories
+ROOT			:= $(realpath .)
+BUILD_DIR		?= $(ROOT)/build
+
+# LLC CFG files
+LLC_GEN_CFG	:= config/llc_cfg.hjson
+LLC_GEN_OPTS	:= \
+	--cfg $(LLC_GEN_CFG)
+
+LLC_GEN_TPL  := $(call rwildcard,$(ROOT)/src/,*.tpl)
+LLC_GEN_TPL  += $(call rwildcard,$(ROOT)/data/,*.tpl)
+LLC_GEN_TPL  += $(call rwildcard,$(ROOT)/test/,*.tpl)
+
+LLC_GEN_LOCK := build/.llc-gen.lock
+
 
 .PHONY: all clean
 
@@ -19,6 +35,9 @@ clean: sim_clean vcs_clean morty_clean misc_clean
 # Ensure half-built targets are purged
 .DELETE_ON_ERROR:
 
+# Create directories
+%/:
+	mkdir -p $@
 
 # --------------
 # help
@@ -39,14 +58,33 @@ help:
 	@echo "nuke:                              cleans all generated file, also almost all files checked in"
 	@echo ""
 
+# --------------
+# Templates
+# --------------
+.PHONY: llc-gen
+llc-gen: $(LLC_GEN_LOCK)
+$(LLC_GEN_LOCK): $(LLC_GEN_CFG) $(LLC_GEN_TPL) $(BUILD_DIR)/
+	python3 $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
+		--outdir $(ROOT)/test/ \
+		--tpl-sv $(ROOT)/test/tb_axi_llc.sv.tpl
+	python3 $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
+		--outdir $(ROOT)/data \
+		--tpl-sv $(ROOT)/data/axi_llc_status_regs.hjson.tpl
+	python3 $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
+		--outdir $(ROOT)/src \
+		--tpl-sv $(ROOT)/src/axi_llc_status_reg_wrap.sv.tpl
+	
 
+#sh $(ROOT)/hw/ip/cache_table/gen_axi_llc_status_regs.sh $(REGGEN_PATH)
 # --------------
 # Registers
 # --------------
 
-regs:
+regs: llc-gen
 	$(REGGEN) -r --outdir src/ data/axi_llc_regs.hjson
 	$(REGGEN) --cdefines --outfile sw/include/axi_llc_regs.h data/axi_llc_regs.hjson
+	$(REGGEN) -r --outdir src/ data/axi_llc_status_regs.hjson
+	$(REGGEN) --cdefines --outfile sw/include/axi_llc_status_regs.h data/axi_llc_status_regs.hjson
 
 # --------------
 # QuestaSim

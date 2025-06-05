@@ -1,0 +1,87 @@
+{
+    xlen : 32
+    max_concurrent_kernels : 1
+    max_ref_args : 3 //Max allowed in XIF v0.2.0 specification
+    max_kernels : 4
+    val_args : {
+        /*
+        * NOTE: The addresses must be explicitly defined to avoid conflicts with
+        * other co-processors in the system which require the sane csr addresses.
+        */
+        address : [ 
+            // Machine-mode addresses
+            "0x7C0",     // ARG0
+            "0x7D0",     // ARG1
+            "0x7E0",     // ARG2
+            "0x7F0",     // ARG3
+        ]
+    }
+    // CORE-V-MINI-MCU CPU features, cv32e40x as X-IF is required
+    cpu: {
+      corev_pulp: false,
+      corev_xif: true,
+      fpu: false,
+      riscv_zfinx: false,
+    },
+
+    // Section for the config registers
+    // TODO: complete
+    cfg_regs: {
+      num : 6,
+      size : 2048,
+    }
+
+    emem: {
+      offset: "0x00000000",
+      length: "0x00000800", // 2kB
+      sections_size: {
+        runtime:  "0x00000600", // 1.5kB
+        data:     "0x00000060", // 96B
+        stack:    "0x000000A0", // 160B
+        kernels:  "0x00000100"  // 256B
+      }
+    }
+    
+    dma_regs: {
+      num: 26,
+      size : 2048,
+    }
+
+
+    cache_table: {
+      ways : 8, //(=SetAssociativity in axi_llc_top)
+      sets : 256, // (=NumLines)
+      block_size: 8, // # words per cache line
+      word_size: 128, // bits in a word (=AxiDataWidt)
+      //block_size: 1024, // bytes (num_banks*bank_addr_width)/32
+      size : 3072, // conf regs size (addressable conf regs, as status)
+    }
+
+    addr_table: {
+      num_lines: 8, // max num of source and dest supported at the same time
+      size : 3072,
+
+    }
+
+    // L1 Subsystem, slave memory map
+    l1: {
+      bus_type : "NtoM",  // NtoM or onetoM
+      offset: "0xF0010000",
+      length: "0x00040000", // length (num_banks*bank_addr_width*num) + 100000
+      carus: {
+        num: 8, // number of instances of memory/vector units inside a single L1 block
+        num_banks: 8,
+        bank_addr_width: 12,
+        // lenght of an instance (num_banks*bank_addr_width)
+        //offset: "0xF0000000", //Use the MSB for easy addressing
+        //length: "0x00000800", // 32KB lenght of an instance (num_banks*bank_addr_width)
+      }
+    },
+    // Support only one memory bank for now, as DMA is single-channel
+    main_memory: {
+      num_banks: 1, //TODO: check if useful
+      num_ports: 1,
+      offset: "0x00010000", // can have same offset as carus, as they are distinguished by the internal bus
+      length: "0x00010000", // 64KB, TOTAL SIZE of the main mem (bank_size=main_mem_size/num_banks)
+    }
+}

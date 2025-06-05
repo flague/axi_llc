@@ -108,7 +108,7 @@ module axi_llc_hit_miss #(
     logic                   dirty;
   } store_req_t;
 
-  /// The response will only come out of the tag storage, id a lookup request was made.
+  /// The response will only come out of the tag storage, if a lookup request was made.
   typedef struct packed {
     /// The descriptor has to operate on this way
     way_ind_t indicator;

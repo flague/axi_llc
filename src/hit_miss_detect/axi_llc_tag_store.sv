@@ -267,11 +267,63 @@ module axi_llc_tag_store #(
   assign ram_rvalid_d = (res_valid & res_ready) ? way_ind_t'(0) : ram_rvalid;
   assign lock_rvalid  = (res_valid & res_ready) | (|ram_rvalid);
 
+
+  // ---------------------------------------------
+  //----------------------------------------------
+  // New wrapper block for tag and status storage.
+  //----------------------------------------------
+  // ---------------------------------------------
+ 
+  `include "register_interface/typedef.svh"
+
+  // Define the register bus types
+  `REG_BUS_TYPEDEF_ALL(conf, logic [31:0], logic [31:0], logic [3:0])
+  
+  `ifdef ARCANE_LLC
+  tag_data_t [Cfg.SetAssociativity-1:0] ram_ways_rdata;
+  // Not parametric as it is templated
+  axi_llc_status_reg_wrap #(
+    .reg_req_t   (conf_req_t), // TODO: select correct type, pass from pachake directly or from above
+    .reg_rsp_t   (conf_rsp_t),
+    .Cfg         ( Cfg                          ),
+    //.NumWords    ( Cfg.NumLines                 ), // templated
+    .DataWidth   ( TagDataLen                   ),
+    .ByteWidth   ( TagDataLen                   ),
+    .NumPorts    ( 32'd1                        ),
+    .Latency     ( axi_llc_pkg::TagMacroLatency ),
+    .SimInit     ( "none"                       ),
+    .PrintSimCfg ( PrintSramCfg                 )
+  )u_llc_status_reg_wrap(
+    .clk_i        ( clk_i        ),
+    .rst_ni       ( rst_ni       ),
+    // SW interface
+    .reg_req_i    ( '0),
+    .reg_rsp_o    ( ),
+    // HW interface
+    .ram_req_i    ( ram_req      ),
+    .ram_we_i     ( ram_we       ),
+    .ram_addr_i   ( ram_index    ),
+    .ram_wdata_i  ( ram_wdata    ),
+    .ram_rdata_o  ( ram_ways_rdata )
+  );
+  `endif
+
   // generate for each Way one tag storage macro
   for (genvar i = 0; unsigned'(i) < Cfg.SetAssociativity; i++) begin : gen_tag_macros
     tag_data_t ram_rdata;    // read data from the sram
     tag_data_t ram_compared; // comparison result of tags
 
+    // New assignment for compatibility with new version
+    `ifdef ARCANE_LLC
+    assign ram_rdata = ram_ways_rdata[i];
+    `endif
+    //--------------------
+    //--------------------
+    // OLD TAG SRAM BLOCK
+    //--------------------
+    //--------------------
+    // TODO: need to separate the tag field from the status one, as in SW I generally just want to write the status
+    `ifndef ARCANE_LLC
     tc_sram #(
       .NumWords    ( Cfg.NumLines                 ),
       .DataWidth   ( TagDataLen                   ),
@@ -290,7 +342,8 @@ module axi_llc_tag_store #(
       .be_i    ( ram_we[i]  ),
       .rdata_o ( ram_rdata  )
     );
-
+    `endif // ARCANE_LLC
+  // TODO: can also be embedded in the wrapper
     // shift register for a validtoken for read data, this pulses once for each read request
     shift_reg #(
       .dtype ( logic                        ),

@@ -258,6 +258,10 @@ module axi_llc_reg_wrap #(
     .devmode_i  ( 1'b1          )  // If 1, explicit error return for unmapped register access
   );
 
+
+  // TODO: to test expose to the outside interface the cfg signals for the busy
+  // then in the real application they will be controlled by the eCPU
+  
   // Registerfile agnostic axi_llc toplevel - configured for 64-bit internal registers
   axi_llc_top #(
     .SetAssociativity ( SetAssociativity      ),
