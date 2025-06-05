@@ -279,7 +279,7 @@ module axi_llc_tag_store #(
   // Define the register bus types
   `REG_BUS_TYPEDEF_ALL(conf, logic [31:0], logic [31:0], logic [3:0])
   
-  `ifdef ARCANE_LLC
+  `ifdef TARGET_ARCANE_LLC
   tag_data_t [Cfg.SetAssociativity-1:0] ram_ways_rdata;
   // Not parametric as it is templated
   axi_llc_status_reg_wrap #(
@@ -314,7 +314,7 @@ module axi_llc_tag_store #(
     tag_data_t ram_compared; // comparison result of tags
 
     // New assignment for compatibility with new version
-    `ifdef ARCANE_LLC
+    `ifdef TARGET_ARCANE_LLC
     assign ram_rdata = ram_ways_rdata[i];
     `endif
     //--------------------
@@ -323,7 +323,7 @@ module axi_llc_tag_store #(
     //--------------------
     //--------------------
     // TODO: need to separate the tag field from the status one, as in SW I generally just want to write the status
-    `ifndef ARCANE_LLC
+    `ifndef TARGET_ARCANE_LLC
     tc_sram #(
       .NumWords    ( Cfg.NumLines                 ),
       .DataWidth   ( TagDataLen                   ),
@@ -342,7 +342,7 @@ module axi_llc_tag_store #(
       .be_i    ( ram_we[i]  ),
       .rdata_o ( ram_rdata  )
     );
-    `endif // ARCANE_LLC
+    `endif // TARGET_ARCANE_LLC
   // TODO: can also be embedded in the wrapper
     // shift register for a validtoken for read data, this pulses once for each read request
     shift_reg #(
