@@ -136,6 +136,11 @@ module axi_llc_top #(
   /// requirement that the address mapping from the address onto the cache-line index has to be
   /// continuous.
   parameter int unsigned NumLines = 32'd0,
+  //// Number of possible status types supported by the LLC.
+  ///
+  /// DO NOT OVERRIDE THIS PARAMETER!
+  //// VALID< DIRTY, COMPUTING
+  parameter int unsigned NumStatus = 3,
   /// Number of blocks (words) in a cache line.
   ///
   /// The width of a block is the same as the data width of the AXI4+ATOP ports. Defined with
@@ -255,6 +260,7 @@ module axi_llc_top #(
     BlockSize         : AxiCfg.DataWidthFull,
     TagLength         : AxiCfg.AddrWidthFull - unsigned'($clog2(NumLines)) -
         unsigned'($clog2(NumBlocks)) - unsigned'($clog2(AxiCfg.DataWidthFull / 32'd8)),
+    StatusTypes       : NumStatus,
     IndexLength       : unsigned'($clog2(NumLines)),
     BlockOffsetLength : unsigned'($clog2(NumBlocks)),
     ByteOffsetLength  : unsigned'($clog2(AxiCfg.DataWidthFull / 32'd8)),

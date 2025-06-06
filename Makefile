@@ -25,6 +25,9 @@ LLC_GEN_TPL  += $(call rwildcard,$(ROOT)/test/,*.tpl)
 
 LLC_GEN_LOCK := build/.llc-gen.lock
 
+# Common Bender flags for Cheshire RTL
+LLC_BENDER_RTL_FLAGS ?= -t rtl
+
 
 .PHONY: all clean
 
@@ -73,6 +76,12 @@ $(LLC_GEN_LOCK): $(LLC_GEN_CFG) $(LLC_GEN_TPL) $(BUILD_DIR)/
 	python3 $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
 		--outdir $(ROOT)/src \
 		--tpl-sv $(ROOT)/src/axi_llc_status_reg_wrap.sv.tpl
+		python3 $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
+		--outdir $(ROOT)/data \
+		--tpl-sv $(ROOT)/data/axi_llc_status_tag_regs.hjson.tpl
+	python3 $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
+		--outdir $(ROOT)/src \
+		--tpl-sv $(ROOT)/src/axi_llc_status_tag_reg_wrap.sv.tpl
 	
 
 #sh $(ROOT)/hw/ip/cache_table/gen_axi_llc_status_regs.sh $(REGGEN_PATH)
@@ -85,6 +94,8 @@ regs: llc-gen
 	$(REGGEN) --cdefines --outfile sw/include/axi_llc_regs.h data/axi_llc_regs.hjson
 	$(REGGEN) -r --outdir src/ data/axi_llc_status_regs.hjson
 	$(REGGEN) --cdefines --outfile sw/include/axi_llc_status_regs.h data/axi_llc_status_regs.hjson
+		$(REGGEN) -r --outdir src/ data/axi_llc_status_tag_regs.hjson
+	$(REGGEN) --cdefines --outfile sw/include/axi_llc_status_tag_regs.h data/axi_llc_status_tag_regs.hjson
 
 # --------------
 # QuestaSim
@@ -95,13 +106,13 @@ regs: llc-gen
 VLOG_ARGS += -suppress vlog-2583 -suppress vlog-13314 -suppress vlog-13233 -timescale \"1 ns / 1 ps\"
 
 define generate_vsim
-	echo 'set ROOT [file normalize [file dirname [info script]]/$3]' > $1
-	$(BENDER) script vsim --vlog-arg="$(VLOG_ARGS)" $2 | grep -v "set ROOT" >> $1
+	echo 'set ROOT [file normalize [file dirname [info script]]/$4]' > $1
+	$(BENDER) script vsim --vlog-arg="$(VLOG_ARGS)" $2 $3| grep -v "set ROOT" >> $1
 	echo >> $1
 endef
 
 scripts/compile_vsim.tcl: Bender.yml
-	$(call generate_vsim, $@, -t rtl -t test,..)
+	$(call generate_vsim, $@, -t rtl -t test,$(LLC_BENDER_RTL_FLAGS),..)
 
 sim_clean:
 	rm -rf scripts/compile_vsim.tcl

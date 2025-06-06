@@ -51,6 +51,7 @@
     cache_table: {
       ways : 8, //(=SetAssociativity in axi_llc_top)
       sets : 256, // (=NumLines)
+      status: 3, // status bits per line (valid, dirty, cmpt)
       block_size: 8, // # words per cache line
       word_size: 128, // bits in a word (=AxiDataWidt)
       //block_size: 1024, // bytes (num_banks*bank_addr_width)/32

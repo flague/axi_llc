@@ -38,6 +38,8 @@ package axi_llc_pkg;
     int unsigned BlockSize;
     /// Length of the address tag, in bits.
     int unsigned TagLength;
+    // Types of status acceptable per cache line (valid, dirty, cmpt)
+    int unsigned StatusTypes;
     /// Length of the index ( line address ), in bits.
     int unsigned IndexLength;
     /// Length of the block offset in bits.

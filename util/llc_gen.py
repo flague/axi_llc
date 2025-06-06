@@ -201,6 +201,7 @@ def main():
     cache_num_ways = int(cfg['cache_table']['ways'])
     cache_num_sets = int(cfg['cache_table']['sets'])
     cache_num_lines = cache_num_ways * cache_num_sets
+    cache_num_status = int(cfg['cache_table']['status'])
     cache_word_size = int(cfg['cache_table']['word_size'])
     cache_start_address = dma_reg_start_address + dma_reg_size
     cache_start_address_hex = int2hexstr(cache_start_address, 32)
@@ -292,6 +293,7 @@ def main():
         'log2_cache_block_size': int(math.log2(cache_block_size)),
         'cache_start_address': cache_start_address_hex,
         'cache_num_lines': cache_num_lines,
+        'cache_num_status': cache_num_status,
         'cache_num_ways': cache_num_ways,
         'cache_num_sets': cache_num_sets,
         'cache_word_size': cache_word_size,

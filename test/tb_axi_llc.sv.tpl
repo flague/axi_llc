@@ -13,6 +13,8 @@ module tb_axi_llc #(
   parameter int unsigned TbSetAssociativity = 32'd${cache_num_ways},
   /// Number of cache lines of the LLC
   parameter int unsigned TbNumLines         = 32'd${cache_num_sets},
+  /// Number of status of the LLC
+  parameter int unsigned TbNumStatus        = 32'd${cache_num_status},
   /// Number of Blocks per cache line
   parameter int unsigned TbNumBlocks        = 32'd${cache_block_size},
   /// ID width of the Full AXI slave port, master port has ID `AxiIdWidthFull + 32'd1`
@@ -456,6 +458,7 @@ module tb_axi_llc #(
   axi_llc_reg_wrap #(
     .SetAssociativity ( TbSetAssociativity ),
     .NumLines         ( TbNumLines         ),
+    .NumStatus        ( TbNumStatus        ),
     .NumBlocks        ( TbNumBlocks        ),
     .AxiIdWidth       ( TbAxiIdWidthFull   ),
     .AxiAddrWidth     ( TbAxiAddrWidthFull ),

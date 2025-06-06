@@ -65,10 +65,11 @@ module axi_llc_tag_store #(
   // typedef, because we use in this module many signals with the width of SetAssiciativity
   typedef logic [Cfg.IndexLength-1:0] index_t; // index type (equals the address for sram)
   typedef logic [Cfg.TagLength-1:0]   tag_t;
+  typedef logic [Cfg.StatusTypes-1:0] status_t; // status type (valid, dirty, busy)
 
   // typedef to have consistent tag data (that what gets written into the sram)
   // valid, dirty and busy(cmpt) bits (+3)
-  localparam int unsigned TagDataLen = Cfg.TagLength + 32'd3;
+  localparam int unsigned TagStatusDataLen = Cfg.TagLength + Cfg.StatusTypes;
   /// Packed struct for the data stored in the memory macros.
   typedef struct packed {
     /// The tag stored is valid.
@@ -280,59 +281,113 @@ module axi_llc_tag_store #(
   `REG_BUS_TYPEDEF_ALL(conf, logic [31:0], logic [31:0], logic [3:0])
   
   `ifdef TARGET_ARCANE_LLC
-  tag_data_t [Cfg.SetAssociativity-1:0] ram_ways_rdata;
-  // Not parametric as it is templated
-  axi_llc_status_reg_wrap #(
-    .reg_req_t   (conf_req_t), // TODO: select correct type, pass from pachake directly or from above
-    .reg_rsp_t   (conf_rsp_t),
-    .Cfg         ( Cfg                          ),
-    //.NumWords    ( Cfg.NumLines                 ), // templated
-    .DataWidth   ( TagDataLen                   ),
-    .ByteWidth   ( TagDataLen                   ),
-    .NumPorts    ( 32'd1                        ),
-    .Latency     ( axi_llc_pkg::TagMacroLatency ),
-    .SimInit     ( "none"                       ),
-    .PrintSimCfg ( PrintSramCfg                 )
-  )u_llc_status_reg_wrap(
-    .clk_i        ( clk_i        ),
-    .rst_ni       ( rst_ni       ),
-    // SW interface
-    .reg_req_i    ( '0),
-    .reg_rsp_o    ( ),
-    // HW interface
-    .ram_req_i    ( ram_req      ),
-    .ram_we_i     ( ram_we       ),
-    .ram_addr_i   ( ram_index    ),
-    .ram_wdata_i  ( ram_wdata    ),
-    .ram_rdata_o  ( ram_ways_rdata )
-  );
+    //----------------------------------------
+    // Register if for tag and status storage.
+    //----------------------------------------
+    tag_data_t [Cfg.SetAssociativity-1:0] ram_ways_rdata;
+    // Not parametric as it is templated
+    axi_llc_status_tag_reg_wrap #(
+      .reg_req_t   (conf_req_t),
+      .reg_rsp_t   (conf_rsp_t),
+      .Cfg         ( Cfg                          ),
+      //.NumWords    ( Cfg.NumLines                 ), // templated
+      .DataWidth   ( TagStatusDataLen             ),
+      .ByteWidth   ( TagStatusDataLen             ),
+      .NumPorts    ( 32'd1                        ),
+      .Latency     ( axi_llc_pkg::TagMacroLatency ),
+      .SimInit     ( "none"                       ),
+      .PrintSimCfg ( PrintSramCfg                 )
+    )u_llc_status_tag_reg_wrap(
+      .clk_i        ( clk_i        ),
+      .rst_ni       ( rst_ni       ),
+      // SW interface
+      .reg_req_i    ( '0),
+      .reg_rsp_o    ( ),
+      // HW interface
+      .ram_req_i    ( ram_req      ),
+      .ram_we_i     ( ram_we       ),
+      .ram_addr_i   ( ram_index    ),
+      .ram_wdata_i  ( ram_wdata    ),
+      .ram_rdata_o  ( ram_ways_rdata )
+    );
+  `elsif ARCANE_LLC
+    //----------------------------------------
+    // Register interface for the status store
+    //----------------------------------------
+    status_t [Cfg.SetAssociativity-1:0] ram_rdata_status; // read status from the sram
+    axi_llc_status_reg_wrap #(
+      .reg_req_t   (conf_req_t),
+      .reg_rsp_t   (conf_rsp_t),
+      .Cfg         ( Cfg                          ),
+      //.NumWords    ( Cfg.NumLines                 ), // templated
+      .DataWidth   ( Cfg.StatusTypes              ),
+      .ByteWidth   ( Cfg.StatusTypes              ),
+      .NumPorts    ( 32'd1                        ),
+      .Latency     ( axi_llc_pkg::TagMacroLatency ),
+      .SimInit     ( "none"                       ),
+      .PrintSimCfg ( PrintSramCfg                 )
+    )u_llc_status_reg_wrap(
+      .clk_i        ( clk_i        ),
+      .rst_ni       ( rst_ni       ),
+      // SW interface
+      .reg_req_i    ( '0),
+      .reg_rsp_o    ( ),
+      // HW interface
+      .ram_req_i    ( ram_req      ),
+      .ram_we_i     ( ram_we       ),
+      .ram_addr_i   ( ram_index    ),
+      .ram_wdata_i  ( ram_wdata[Cfg.TagLength+Cfg.StatusTypes-1:Cfg.TagLength]),
+      .ram_rdata_o  ( ram_rdata_status)
+    );
   `endif
 
   // generate for each Way one tag storage macro
   for (genvar i = 0; unsigned'(i) < Cfg.SetAssociativity; i++) begin : gen_tag_macros
     tag_data_t ram_rdata;    // read data from the sram
     tag_data_t ram_compared; // comparison result of tags
-
     // New assignment for compatibility with new version
     `ifdef TARGET_ARCANE_LLC
-    assign ram_rdata = ram_ways_rdata[i];
-    `endif
+      assign ram_rdata = ram_ways_rdata[i];
+    `elsif ARCANE_LLC;
+      tag_t ram_rdata_tag; // tag part of the read data
+      
+      assign ram_rdata = {ram_rdata_status[i],ram_rdata_tag};
+      // Tag SRAM
+      // --------
+      tc_sram #(
+        .NumWords    ( Cfg.NumLines                 ),
+        .DataWidth   ( Cfg.TagLength                ),
+        .ByteWidth   ( Cfg.TagLength                ),
+        .NumPorts    ( 32'd1                        ),
+        .Latency     ( axi_llc_pkg::TagMacroLatency ),
+        .SimInit     ( "none"                       ),
+        .PrintSimCfg ( PrintSramCfg                 )
+      ) i_tag_store (
+        .clk_i,
+        .rst_ni,
+        .req_i   ( ram_req[i] ),
+        .we_i    ( ram_we[i]  ),
+        .addr_i  ( ram_index  ),
+        .wdata_i ( ram_wdata[Cfg.TagLength-1:0]  ),
+        .be_i    ( ram_we[i]  ),
+        .rdata_o ( ram_rdata_tag)
+      );
+    `else
     //--------------------
     //--------------------
     // OLD TAG SRAM BLOCK
     //--------------------
     //--------------------
     // TODO: need to separate the tag field from the status one, as in SW I generally just want to write the status
-    `ifndef TARGET_ARCANE_LLC
     tc_sram #(
       .NumWords    ( Cfg.NumLines                 ),
-      .DataWidth   ( TagDataLen                   ),
-      .ByteWidth   ( TagDataLen                   ),
+      .DataWidth   ( TagStatusDataLen             ),
+      .ByteWidth   ( TagStatusDataLen             ),
       .NumPorts    ( 32'd1                        ),
       .Latency     ( axi_llc_pkg::TagMacroLatency ),
       .SimInit     ( "none"                       ),
       .PrintSimCfg ( PrintSramCfg                 )
-    ) i_tag_store (
+    ) i_tag_status_store (
       .clk_i,
       .rst_ni,
       .req_i   ( ram_req[i] ),
