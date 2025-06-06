@@ -38,15 +38,6 @@ sources:
   - src/hit_miss_detect/axi_llc_lock_box_bloom.sv
   - src/hit_miss_detect/axi_llc_miss_counters.sv
   - src/hit_miss_detect/axi_llc_tag_pattern_gen.sv
-  # Level 1
-  - src/axi_llc_chan_splitter.sv
-  - src/axi_llc_evict_unit.sv
-  - src/axi_llc_refill_unit.sv
-  - src/axi_llc_ways.sv
-  - src/hit_miss_detect/axi_llc_tag_store.sv
-  - src/axi_llc_status_reg_pkg.sv
-  - src/axi_llc_status_reg_top.sv
-  - src/axi_llc_status_reg_wrap.sv
   # Level 2
   - src/axi_llc_config.sv
   - src/axi_llc_hit_miss.sv
@@ -55,13 +46,25 @@ sources:
   # Level 4
   - src/axi_llc_reg_wrap.sv
 
-
+  
   - target: test
     include_dirs:
       - test
     defines:
-      ARCANE_LLC: true
+      ARCANE_LLC: ~
     files:
+      # Level 1:
+      - src/axi_llc_chan_splitter.sv
+      - src/axi_llc_evict_unit.sv
+      - src/axi_llc_refill_unit.sv
+      - src/axi_llc_ways.sv
+      - src/hit_miss_detect/axi_llc_tag_store.sv
+      - src/axi_llc_status_reg_pkg.sv
+      - src/axi_llc_status_reg_top.sv
+      - src/axi_llc_status_reg_wrap.sv
+      - src/axi_llc_status_tag_reg_pkg.sv
+      - src/axi_llc_status_tag_reg_top.sv
+      - src/axi_llc_status_tag_reg_wrap.sv
       # Level 0:
       - test/tb_axi_llc.sv
 
