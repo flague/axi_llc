@@ -245,8 +245,9 @@ module axi_llc_hit_miss #(
               desc_o.evict_tag = store_res.evict_tag;
               desc_o.refill   = 1'b0; // no refill on allocate src
               if (!(locked || cnt_stall)) begin
-                miss_valid_o =  to_miss; // TODO: check if this or the flush bhvr is correct
-                if (miss_valid_o && miss_ready_i) begin
+                hit_valid_o  = ~to_miss &  store_res.hit;
+                miss_valid_o =  to_miss | ~store_res.hit; // TODO: check if this or the flush bhvr is correct
+                if ((hit_valid_o && hit_ready_i) || (miss_valid_o && miss_ready_i)) begin
                   store_res_ready = 1'b1;
                   // Check if a new descriptor is available
                   if (valid_i) begin

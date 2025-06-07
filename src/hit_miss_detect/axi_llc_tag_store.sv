@@ -547,9 +547,9 @@ module axi_llc_tag_store #(
         axi_llc_pkg::AllocSrcW: begin
           res = store_res_t'{
             indicator: req_q.indicator,
-            // Always treat as a miss, set evict and refill=0
-            // Finally performs the write after going through the miss pipeline
-            hit:       1'b0, // TODO:check
+            // OPTimization: treat as hit if no eviction is needed
+            // Will go throught the miss pipeline only if other req with same id are present
+            hit:       !(stored_tag[bin_ind].val && stored_tag[bin_ind].dit), // TODO:check
             // Evict line if it is dirty
             evict:     stored_tag[bin_ind].val && stored_tag[bin_ind].dit,
             evict_tag: stored_tag[bin_ind].tag,
