@@ -97,6 +97,7 @@ module axi_llc_hit_miss #(
   // TODO: check if busy has to be added also here
   typedef struct packed {
     /// The request mode. What operation the tag storage should perform with the request.
+    // TODO: use new modes to implement DMA_write on alloc_dst and maybe also for writeback
     axi_llc_pkg::tag_mode_e mode;
     /// The indicatior encodes with a hot signal, to which ways the request should be made.
     way_ind_t               indicator;
@@ -143,6 +144,10 @@ module axi_llc_hit_miss #(
   desc_t desc_d,    desc_q;            // descriptor residing in unit
   logic  load_desc;
 
+  // Allocate SRC tracking
+  logic alloc_src_w;
+  logic alloc_src_r;
+
   // control
   always_comb begin
     // default assignments
@@ -163,6 +168,10 @@ module axi_llc_hit_miss #(
     store_req_valid = 1'b0;
 
     store_res_ready = 1'b0;
+
+    // Alloc SRC tracking
+    alloc_src_w = desc_i.alloc_src && desc_i.rw;
+    alloc_src_r = desc_i.alloc_src && ~desc_q.rw;
 
     // we are initialized, can operate on input descriptors
     if (init_q) begin
@@ -202,6 +211,7 @@ module axi_llc_hit_miss #(
           ////////////////////////////////////////////////////////////////
           // NORMAL or FLUSH descriptor in unit, made req to tag_store
           // wait for the response
+          // Also for ARCANE_LLC requests, wait for the response
           ////////////////////////////////////////////////////////////////
           if (store_res_valid) begin
             if (desc_q.flush) begin
@@ -218,6 +228,73 @@ module axi_llc_hit_miss #(
                   load_busy       = 1'b1;
                 end
               end
+            
+            end else if (desc_q.alloc_src & desc_q.rw) begin
+              /////////////////////////////////////////////////////////////
+              // ALLOCATE SRC DMA WRITE
+              /////////////////////////////////////////////////////////////
+              // TODO: check
+              // Trigger an error if the allocate src write would go onto a way configured as spm
+              // Understand how to deal with this case
+              if (|(desc_q.way_ind & spm_lock_i)) begin
+                desc_o.x_resp = axi_pkg::RESP_SLVERR;
+              end
+              // Set out descriptor
+              // desc_o.way_ind should already be set as the desc_i field, that is correct
+              desc_o.evict    = store_res.evict;
+              desc_o.evict_tag = store_res.evict_tag;
+              desc_o.refill   = 1'b0; // no refill on allocate src
+              if (!(locked || cnt_stall)) begin
+                miss_valid_o =  to_miss; // TODO: check if this or the flush bhvr is correct
+                if (miss_valid_o && miss_ready_i) begin
+                  store_res_ready = 1'b1;
+                  // Check if a new descriptor is available
+                  if (valid_i) begin
+                    // snoop at the descriptors spm, we do not have to make a lookup if it is spm
+                    if (desc_i.spm) begin
+                      // load directly, if it is spm
+                      ready_o   = 1'b1;
+                      desc_d    = desc_i;
+                      load_desc = 1'b1;
+                    end else begin
+                      // make the request to the tag store,
+                      store_req = store_req_t'{
+                        mode:      axi_llc_pkg::Lookup, // assign later on (procedural)
+                        indicator: (desc_i.flush || alloc_src_w) ? desc_i.way_ind : ~flushed_i,
+                        index:     desc_i.a_x_addr[IndexBase+:Cfg.IndexLength],
+                        tag:       desc_i.flush ? tag_t'(0)          : desc_i.a_x_addr[TagBase+:Cfg.TagLength],
+                        dirty:     desc_i.rw,
+                        default:   '0
+                      };
+                      
+                      // Set mode
+                      if (desc_i.flush)
+                        store_req.mode = axi_llc_pkg::Flush;
+                      else if (alloc_src_w)
+                        store_req.mode = axi_llc_pkg::AllocSrcW;
+                      //else if (alloc_src_r)
+                      //  store_req.mode = axi_llc_pkg::AllocSrcR;
+                      else
+                        store_req.mode = axi_llc_pkg::Lookup;
+                      
+                      store_req_valid = 1'b1;
+                      // transfer
+                      if (store_req_ready) begin
+                        ready_o   = 1'b1;
+                        desc_d    = desc_i;
+                        load_desc = 1'b1;
+                      end else begin
+                        // go to idle and do nothing
+                        busy_d    = 1'b0;
+                        load_busy = 1'b1;
+                      end
+                    end
+                  end
+                  // transfer
+                  busy_d    = 1'b0;
+                  load_busy = 1'b1;
+                end
+              end
             end else begin
               /////////////////////////////////////////////////////////////
               // NORMAL lookup - differentiate between hit / miss
@@ -230,7 +307,7 @@ module axi_llc_hit_miss #(
               // determine if it has to go to the bypass or not if we are not stalled
               if (!(locked || cnt_stall)) begin
                 hit_valid_o  = ~to_miss &  store_res.hit;
-                miss_valid_o =  to_miss | ~store_res.hit;
+                miss_valid_o =  to_miss | ~store_res.hit; // even if hit, go to miss pipe if other req with same ID are in the miss pipe
                 // check for a transfer, do not update hit_valid or miss_valid from this point on!
                 if ((hit_valid_o && hit_ready_i) || (miss_valid_o && miss_ready_i)) begin
                   store_res_ready = 1'b1;
@@ -247,13 +324,24 @@ module axi_llc_hit_miss #(
                     end else begin
                       // make the request to the tag store,
                       store_req = store_req_t'{
-                        mode:      desc_i.flush ? axi_llc_pkg::Flush : axi_llc_pkg::Lookup,
-                        indicator: desc_i.flush ? desc_i.way_ind     : ~flushed_i,
+                        mode:      axi_llc_pkg::Lookup, // assign later on (procedural)
+                        indicator: (desc_i.flush || alloc_src_w) ? desc_i.way_ind  : ~flushed_i,
                         index:     desc_i.a_x_addr[IndexBase+:Cfg.IndexLength],
                         tag:       desc_i.flush ? tag_t'(0)          : desc_i.a_x_addr[TagBase+:Cfg.TagLength],
                         dirty:     desc_i.rw,
                         default:   '0
                       };
+                      
+                      // Set mode
+                      if (desc_i.flush)
+                        store_req.mode = axi_llc_pkg::Flush;
+                      else if (alloc_src_w)
+                        store_req.mode = axi_llc_pkg::AllocSrcW;
+                      //else if (alloc_src_r)
+                      //  store_req.mode = axi_llc_pkg::AllocSrcR;
+                      else
+                        store_req.mode = axi_llc_pkg::Lookup;
+                      
                       store_req_valid = 1'b1;
                       // transfer
                       if (store_req_ready) begin
@@ -294,13 +382,22 @@ module axi_llc_hit_miss #(
           end else begin
             // make the request to the tag store,
             store_req = store_req_t'{
-              mode:      desc_i.flush ? axi_llc_pkg::Flush : axi_llc_pkg::Lookup,
-              indicator: desc_i.flush ? desc_i.way_ind     : ~flushed_i,
+              mode:      axi_llc_pkg::Lookup, // assign later on (procedural)
+              indicator: (desc_i.flush || alloc_src_w) ? desc_i.way_ind     : ~flushed_i,
               index:     desc_i.a_x_addr[IndexBase+:Cfg.IndexLength],
               tag:       desc_i.flush ? tag_t'(0)          : desc_i.a_x_addr[TagBase+:Cfg.TagLength],
               dirty:     desc_i.rw,
               default:   '0
             };
+            // Set mode
+            if (desc_i.flush)
+              store_req.mode = axi_llc_pkg::Flush;
+            else if (alloc_src_w)
+              store_req.mode = axi_llc_pkg::AllocSrcW;
+            //else if (alloc_src_r)
+            //  store_req.mode = axi_llc_pkg::AllocSrcR;
+            else
+              store_req.mode = axi_llc_pkg::Lookup;
             store_req_valid = 1'b1;
             // transfer
             if (store_req_ready) begin

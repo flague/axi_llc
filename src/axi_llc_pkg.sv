@@ -195,7 +195,9 @@ package axi_llc_pkg;
     /// Flush the requested position (output tells if to evict)
     Flush  = 2'b01,
     /// Lookup, Performs Hit detection
-    Lookup = 2'b10
+    Lookup = 2'b10,
+    /// Alloc SRC, DMA write. Update status to computing and copy the src according to kernel layout
+    AllocSrcW = 2'b11
   } tag_mode_e;
 
   // Configuration of the counting bloom filter in `lock_box_bloom` located in `hit_miss`.

@@ -287,6 +287,7 @@ module axi_llc_top #(
     logic [Cfg.TagLength -1:0]       evict_tag;// tag for evicting a line
     logic                            refill;   // refill the cache line
     logic                            flush;    // flush this line, comes from config
+    logic                            alloc_src;// allocate source, comes from external module TODO
   } llc_desc_t;
 
   // definition of the structs that are between the units and the ways

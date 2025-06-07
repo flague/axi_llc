@@ -14,6 +14,11 @@
 /// `axi_llc_pkg::Lookup`:
 ///   Perform a tag lookup in all non SPM ways, hit/eviction gets set if needed.
 ///   Writes the tag into the macro if needed.
+/// `axi_llc_pkg::AllocSrcW`:
+///  Perform a lookup of tag and status in all non-SPM ways.
+///  Write the status to cmpt and set the current tag for eviction if needed.
+///  No tag is written into the macro. (not used in Arcane LLC)
+
 `include "common_cells/registers.svh"
 module axi_llc_tag_store #(
   /// Static LLC configuration struct
@@ -192,6 +197,7 @@ module axi_llc_tag_store #(
                     ram_req     = req_i.indicator;
                     ram_index   = req_i.index;
                     load_req    = 1'b1;
+                  // TODO: may take into account the case of a following alloc req (future opt not to lose 1 cycle)
                   end else begin
                     // Go back to IDLE if no Lookup
                     switch_busy = 1'b1;
@@ -229,6 +235,31 @@ module axi_llc_tag_store #(
               switch_busy = 1'b1;
             end
           end
+          // ARCANE_LLC modes
+          axi_llc_pkg::AllocSrcW: begin
+            // Lookup the tag and status in all ways
+            // Wait for valid macro output
+            if ((|ram_rvalid) | (|ram_rvalid_q)) begin
+              // Always valid
+              res_valid = 1'b1;
+              // As in flush, do not use evict unit, already know whether to evict
+              // Evict if line is dirty
+            end
+            // Write back the new status of the cache line
+            if (res_valid && res_ready) begin
+              ram_req   = req_q.indicator;  // TODO: check (req_q or res?)
+              ram_we    = req_q.indicator;  // TODO: check
+              ram_index = req_q.index;
+              ram_wdata = tag_data_t'{
+                            val: 1'b1,
+                            dit: 1'b0,
+                            cmpt: 1'b1,
+                            tag: '0
+                          };
+              switch_busy = 1'b1;
+            end
+          end
+
         default : /* default */;
       endcase
     end else begin
@@ -248,7 +279,7 @@ module axi_llc_tag_store #(
             // Only switch the state, if the request is valid
             switch_busy = gen_ready;
           end
-          axi_llc_pkg::Lookup, axi_llc_pkg::Flush: begin
+          axi_llc_pkg::Lookup, axi_llc_pkg::Flush, axi_llc_pkg::AllocSrcW: begin
             // Do the lookup on the requested macros
             ram_req     = req_i.indicator;
             ram_index   = req_i.index;
@@ -378,7 +409,6 @@ module axi_llc_tag_store #(
     // OLD TAG SRAM BLOCK
     //--------------------
     //--------------------
-    // TODO: need to separate the tag field from the status one, as in SW I generally just want to write the status
     tc_sram #(
       .NumWords    ( Cfg.NumLines                 ),
       .DataWidth   ( TagStatusDataLen             ),
@@ -398,7 +428,6 @@ module axi_llc_tag_store #(
       .rdata_o ( ram_rdata  )
     );
     `endif // TARGET_ARCANE_LLC
-  // TODO: can also be embedded in the wrapper
     // shift register for a validtoken for read data, this pulses once for each read request
     shift_reg #(
       .dtype ( logic                        ),
@@ -510,6 +539,19 @@ module axi_llc_tag_store #(
             indicator: req_q.indicator,
             hit:       1'b0,
             evict:     stored_tag[bin_ind].val & stored_tag[bin_ind].dit,
+            evict_tag: stored_tag[bin_ind].tag,
+            default:   '0
+          };
+        end
+        // ARCANE_LLC modes
+        axi_llc_pkg::AllocSrcW: begin
+          res = store_res_t'{
+            indicator: req_q.indicator,
+            // Always treat as a miss, set evict and refill=0
+            // Finally performs the write after going through the miss pipeline
+            hit:       1'b0, // TODO:check
+            // Evict line if it is dirty
+            evict:     stored_tag[bin_ind].val && stored_tag[bin_ind].dit,
             evict_tag: stored_tag[bin_ind].tag,
             default:   '0
           };
