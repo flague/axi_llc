@@ -288,6 +288,10 @@ module axi_llc_top #(
     logic                            refill;   // refill the cache line
     logic                            flush;    // flush this line, comes from config
     logic                            alloc_src;// allocate source, comes from external module TODO
+    // TODO: check if required or a single alloc for both src and dst is enough at this level
+    // If a dummy module implementing the alloc_src dma_read is implemented, than this is not needed
+    //logic                            alloc_dst;// allocate destination, comes from external module TODO
+    logic                            writeback;
   } llc_desc_t;
 
   // definition of the structs that are between the units and the ways

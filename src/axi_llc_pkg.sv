@@ -189,15 +189,17 @@ package axi_llc_pkg;
   } tag_req_e;
 
   /// Tag storage request enumeration definition
-  typedef enum logic [1:0] {
+  typedef enum logic [2:0] {
     /// Run BIST/INIT
-    Bist   = 2'b00,
+    Bist   = 3'b000,
     /// Flush the requested position (output tells if to evict)
-    Flush  = 2'b01,
+    Flush  = 3'b001,
     /// Lookup, Performs Hit detection
-    Lookup = 2'b10,
+    Lookup = 3'b010,
     /// Alloc SRC, DMA write. Update status to computing and copy the src according to kernel layout
-    AllocSrcW = 2'b11
+    AllocSrcW = 3'b011,
+    /// Writeback read (TODO: can be used also as AllocDstR, in the less optimized version)
+    WritebackR = 3'b100
   } tag_mode_e;
 
   // Configuration of the counting bloom filter in `lock_box_bloom` located in `hit_miss`.

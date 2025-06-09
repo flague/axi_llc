@@ -190,14 +190,18 @@ module axi_llc_tag_store #(
                               };
                   switch_busy = 1'b1;
                 end else begin
-                  // Noting to write back, do we have a new LOOKUP request?
-                  if (valid_i && (req_i.mode == axi_llc_pkg::Lookup)) begin
+                  // Nothing to write back, do we have a new LOOKUP request?
+                  if (valid_i && (req_i.mode inside {axi_llc_pkg::Lookup, axi_llc_pkg::AllocSrcW})) begin
                     ready_o = 1'b1;
                     // Do the lookup on the requested macros
                     ram_req     = req_i.indicator;
                     ram_index   = req_i.index;
                     load_req    = 1'b1;
-                  // TODO: may take into account the case of a following alloc req (future opt not to lose 1 cycle)
+                  end else if (valid_i && (req_i.mode == axi_llc_pkg::WritebackR)) begin
+                    ready_o     = 1'b1;
+                    ram_req     = way_ind_t'(0); // combinatorial output, do not need to save the req
+                    ram_index   = req_i.index;
+                    load_req    = 1'b0;
                   end else begin
                     // Go back to IDLE if no Lookup
                     switch_busy = 1'b1;
@@ -235,7 +239,12 @@ module axi_llc_tag_store #(
               switch_busy = 1'b1;
             end
           end
+          //-----------------
           // ARCANE_LLC modes
+          //-----------------
+
+          // AllocSrcW mode
+          // --------------
           axi_llc_pkg::AllocSrcW: begin
             // Lookup the tag and status in all ways
             // Wait for valid macro output
@@ -259,7 +268,37 @@ module axi_llc_tag_store #(
               switch_busy = 1'b1;
             end
           end
-
+          
+          // WritebackR mode
+          // --------------
+          axi_llc_pkg::WritebackR: begin
+            // Always valid as not used (don't need to read tag and status)
+            res_valid = 1'b1;
+            // Don't look for hit or miss
+            if (res_valid) begin
+              // Just want to read so never write enable
+              //ram_req   = '0;
+              //ram_we    = '0; // always 0
+              // Nothing to write back, do we have a new LOOKUP request?
+              if (res_ready && valid_i && (req_i.mode inside {axi_llc_pkg::Lookup, axi_llc_pkg::AllocSrcW})) begin
+                ready_o = 1'b1;
+                // Do the lookup on the requested macros
+                ram_req     = req_i.indicator;
+                ram_index   = req_i.index;
+                load_req    = 1'b1;
+              end else if (valid_i && (req_i.mode == axi_llc_pkg::WritebackR)) begin
+                    // Don't need to check on res_ready as we are not consulting the macros
+                    ready_o     = 1'b1;
+                    ram_req     = way_ind_t'(0); // combinatorial output, do not need to save the req
+                    ram_index   = req_i.index;
+                    load_req    = 1'b0;
+              end else begin
+                // TODO: check we do not need to wait for res_ready here (should not be needed)
+                // Go back to IDLE if no Lookup
+                switch_busy = 1'b1;
+              end
+            end
+          end
         default : /* default */;
       endcase
     end else begin
@@ -285,6 +324,17 @@ module axi_llc_tag_store #(
             ram_index   = req_i.index;
             load_req    = 1'b1;
             switch_busy = 1'b1;
+          end
+          axi_llc_pkg::WritebackR: begin
+            // Do not need any lookup
+            ram_req     = way_ind_t'(0);
+            ram_index   = way_ind_t'(0);
+            // combinatorial output, do not need to save the req
+            load_req    = 1'b0;
+            ram_we      = way_ind_t'(0);
+            // Do not switch to busy state, a new request is acceptable in the following cycle.
+            // TODO: check this works in a comb way, and the next req is not lost
+            switch_busy = 1'b0;
           end
           default : /* do nothing */;
         endcase
@@ -553,6 +603,15 @@ module axi_llc_tag_store #(
             // Evict line if it is dirty
             evict:     stored_tag[bin_ind].val && stored_tag[bin_ind].dit,
             evict_tag: stored_tag[bin_ind].tag,
+            default:   '0
+          };
+        end
+        axi_llc_pkg::WritebackR: begin
+          res = store_res_t'{
+            indicator: req_i.indicator, //already known
+            hit:       1'b1, // always hit
+            evict:     1'b0, // never evict
+            evict_tag: '0,
             default:   '0
           };
         end
