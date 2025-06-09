@@ -299,6 +299,7 @@ module axi_llc_hit_miss #(
             end else begin
               /////////////////////////////////////////////////////////////
               // NORMAL lookup - differentiate between hit / miss
+              // Valid bhvr also for alloc_src read
               /////////////////////////////////////////////////////////////
               // set out descriptor
               desc_o.way_ind   = store_res.indicator;
@@ -338,9 +339,7 @@ module axi_llc_hit_miss #(
                         store_req.mode = axi_llc_pkg::Flush;
                       else if (alloc_src_w)
                         store_req.mode = axi_llc_pkg::AllocSrcW;
-                      //else if (alloc_src_r)
-                      //  store_req.mode = axi_llc_pkg::AllocSrcR;
-                      else
+                      else // lookup + alloc_src_r
                         store_req.mode = axi_llc_pkg::Lookup;
                       
                       store_req_valid = 1'b1;
@@ -395,8 +394,6 @@ module axi_llc_hit_miss #(
               store_req.mode = axi_llc_pkg::Flush;
             else if (alloc_src_w)
               store_req.mode = axi_llc_pkg::AllocSrcW;
-            //else if (alloc_src_r)
-            //  store_req.mode = axi_llc_pkg::AllocSrcR;
             else
               store_req.mode = axi_llc_pkg::Lookup;
             store_req_valid = 1'b1;
