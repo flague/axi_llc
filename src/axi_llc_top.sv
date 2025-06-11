@@ -490,8 +490,9 @@ module axi_llc_top #(
       .Cfg    ( Cfg        ),
       .AxiCfg ( AxiCfg     ),
       .desc_t ( llc_desc_t ),
-      .req_t  ( axi_data_req_t),
-      .resp_t ( axi_data_resp_t)
+      .axi_data_req_t  ( axi_data_req_t),
+      .axi_data_resp_t ( axi_data_resp_t),
+      .rule_t          ( rule_full_t  )
     ) i_axi_llc_arcane_ctl (
         .clk_i,
         .rst_ni,
@@ -499,7 +500,7 @@ module axi_llc_top #(
         .dma_reg_rsp_o (),          // TODO: connect to eCPU regs
         .ecpu_llc_lock_i ('0),      // TODO: connect to eCPU regs
         .ecpu_llc_lock_req_i ('0),  // TODO: connect to eCPU regs
-        .hw_llc_lock_o (),          // TODO: connect to eCPU regs
+        .arcane_llc_lock_o (),          // TODO: connect to eCPU regs
         .ecpu_src_dst_alloc_i ('0), // TODO: connect to eCPU regs
         .llc_isolate_o (arcane_llc_isolate),
         .llc_isolated_i (llc_isolated),
@@ -512,7 +513,8 @@ module axi_llc_top #(
         .r_desc_valid_o (ax_desc_valid[axi_llc_pkg::ArcaneRChan]),
         .r_desc_ready_i (ax_desc_ready[axi_llc_pkg::ArcaneRChan]),
         .req_o (arcane_req), // simplified axi req, just pass the required signals to  downstream
-        .rsp_i (arcane_resp) // simplified axi resp, just pass the required signals to downstream
+        .resp_i (arcane_resp), // simplified axi resp, just pass the required signals to downstream
+        .cached_rule_i (cached_addr_rule) // address rule for LLC
         );
 
     // Isolation module before demux to easy flushing,
