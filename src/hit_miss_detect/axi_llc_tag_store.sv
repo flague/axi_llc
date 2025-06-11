@@ -382,8 +382,8 @@ module axi_llc_tag_store #(
       .clk_i        ( clk_i        ),
       .rst_ni       ( rst_ni       ),
       // SW interface
-      .reg_req_i    ( '0),
-      .reg_rsp_o    ( ),
+      .reg_req_i    ( '0),  // TODO: connect to the eCPU
+      .reg_rsp_o    ( ),    // TODO: connect to the eCPU
       // HW interface
       .ram_req_i    ( ram_req      ),
       .ram_we_i     ( ram_we       ),
@@ -411,8 +411,8 @@ module axi_llc_tag_store #(
       .clk_i        ( clk_i        ),
       .rst_ni       ( rst_ni       ),
       // SW interface
-      .reg_req_i    ( '0),
-      .reg_rsp_o    ( ),
+      .reg_req_i    ( '0),  // TODO: connect to the eCPU
+      .reg_rsp_o    ( ),    // TODO: connect to the eCPU
       // HW interface
       .ram_req_i    ( ram_req      ),
       .ram_we_i     ( ram_we       ),

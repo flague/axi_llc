@@ -268,7 +268,7 @@ module axi_llc_hit_miss #(
                       store_req = store_req_t'{
                         mode:      axi_llc_pkg::Lookup, // assign later on (procedural)
                         indicator: (desc_i.flush || alloc_src_w || writeback_r) ? desc_i.way_ind : ~flushed_i,
-                        index:     desc_i.a_x_addr[IndexBase+:Cfg.IndexLength],
+                        index:     desc_i.a_x_addr[IndexBase+:Cfg.IndexLength], //TODO: this may be wrong in case of alloc_src_w and writeback_r
                         tag:       desc_i.flush ? tag_t'(0)          : desc_i.a_x_addr[TagBase+:Cfg.TagLength],
                         dirty:     desc_i.rw,
                         default:   '0

@@ -232,6 +232,7 @@ module axi_llc_top #(
   // Axi parameters are accumulated in a struct for further use.
   localparam axi_llc_pkg::llc_axi_cfg_t AxiCfg = axi_llc_pkg::llc_axi_cfg_t'{
     SlvPortIdWidth:    AxiIdWidth,
+    UserWidth:         AxiUserWidth,
     AddrWidthFull:     AxiAddrWidth,
     DataWidthFull:     AxiDataWidth
   };
@@ -282,7 +283,7 @@ module axi_llc_top #(
     // Cache specific descriptor signals
     logic                            spm;      // this descriptor targets a SPM region in the cache
     logic                            rw;       // this descriptor is a read:0 or write:1 access
-    logic [Cfg.SetAssociativity-1:0] way_ind;  // way we have to perform an operation on
+    logic [Cfg.SetAssociativity-1:0] way_ind;  // way we have to perform an operation on (onehot)
     logic                            evict;    // evict what is standing in the line
     logic [Cfg.TagLength -1:0]       evict_tag;// tag for evicting a line
     logic                            refill;   // refill the cache line
@@ -297,7 +298,7 @@ module axi_llc_top #(
   // definition of the structs that are between the units and the ways
   typedef struct packed {
     axi_llc_pkg::cache_unit_e         cache_unit;   // which unit does the access
-    logic [Cfg.SetAssociativity -1:0] way_ind;      // to which way the access goes
+    logic [Cfg.SetAssociativity -1:0] way_ind;      // to which way the access goes (onehot)
     logic [Cfg.IndexLength      -1:0] line_addr;    // cache line address
     logic [Cfg.BlockOffsetLength-1:0] blk_offset;   // block offset
     logic                             we;           // write enable
@@ -332,9 +333,9 @@ module axi_llc_top #(
   slv_resp_t    to_demux_resp, bypass_resp,  to_llc_resp,  from_llc_resp;
 
   // signals between channel splitters and rw_arb_tree
-  llc_desc_t [2:0]      ax_desc;
-  logic      [2:0]      ax_desc_valid;
-  logic      [2:0]      ax_desc_ready;
+  llc_desc_t [axi_llc_pkg::NumArbTreeInputs-1:0]      ax_desc;
+  logic      [axi_llc_pkg::NumArbTreeInputs-1:0]      ax_desc_valid;
+  logic      [axi_llc_pkg::NumArbTreeInputs-1:0]      ax_desc_ready;
 
   // descriptor from rw_arb_tree to spill register to cut longest path (hit miss detect)
   llc_desc_t            rw_desc;
@@ -393,7 +394,25 @@ module axi_llc_top #(
   logic                            bist_valid;
 
   // global flush signals
-  logic llc_isolate, llc_isolated, aw_unit_busy, ar_unit_busy, flush_recv;
+  logic cfg_llc_isolate, llc_isolate, llc_isolated, aw_unit_busy, ar_unit_busy, flush_recv;
+  
+  // AXI W, R, B req and resp signals
+  typedef struct packed {
+    w_chan_t  w;
+    logic     w_valid;
+    logic     b_ready;
+    logic     r_ready;
+  } axi_data_req_t;
+  typedef struct packed {
+    logic    w_ready;
+    slv_b_chan_t b;
+    logic    b_valid;
+    slv_r_chan_t r;
+    logic    r_valid;
+  } axi_data_resp_t;
+  // Tmp signals to Read and Write unit from eiter splitters or ARCANE
+  axi_data_req_t w_r_req;
+  axi_data_resp_t w_r_resp;
 
   // define address rules from the address ports, propagate it throughout the design
   rule_full_t cached_addr_rule;
@@ -436,7 +455,7 @@ module axi_llc_top #(
     .mst_aw_bypass_o   ( slv_aw_bypass                          ),
     .mst_ar_bypass_o   ( slv_ar_bypass                          ),
     // flush control signals to prevent new data in ax_cutter loading
-    .llc_isolate_o     ( llc_isolate                            ),
+    .llc_isolate_o     ( cfg_llc_isolate                            ),
     .llc_isolated_i    ( llc_isolated                           ),
     .aw_unit_busy_i    ( aw_unit_busy                           ),
     .ar_unit_busy_i    ( ar_unit_busy                           ),
@@ -449,8 +468,62 @@ module axi_llc_top #(
     .axi_spm_rule_i    ( spm_addr_rule                          )
   );
 
-  // Isolation module before demux to easy flushing,
-  // AXI requests get stalled while flush is active
+    
+  `ifdef ARCANE_LLC
+    //-----------
+    // ARCANE ctl
+    //-----------
+
+    // Internal signals
+    // ----------------
+    // ARCANE Ctl interface signals
+    logic arcane_llc_isolate;
+    // W, R, B channels req and resp
+    axi_data_req_t arcane_req;
+    axi_data_resp_t arcane_resp;
+
+    // Cache ctl handling
+    // TODO: handling of flush mode and spm mode while ARCANE is "active"
+    // TODO: handling of bypass mem regions
+
+    axi_llc_arcane_ctl #(
+      .Cfg    ( Cfg        ),
+      .AxiCfg ( AxiCfg     ),
+      .desc_t ( llc_desc_t ),
+      .req_t  ( axi_data_req_t),
+      .resp_t ( axi_data_resp_t)
+    ) i_axi_llc_arcane_ctl (
+        .clk_i,
+        .rst_ni,
+        .dma_reg_req_i ('0),        // TODO: connect to eCPU regs
+        .dma_reg_rsp_o (),          // TODO: connect to eCPU regs
+        .ecpu_llc_lock_i ('0),      // TODO: connect to eCPU regs
+        .ecpu_llc_lock_req_i ('0),  // TODO: connect to eCPU regs
+        .hw_llc_lock_o (),          // TODO: connect to eCPU regs
+        .ecpu_src_dst_alloc_i ('0), // TODO: connect to eCPU regs
+        .llc_isolate_o (arcane_llc_isolate),
+        .llc_isolated_i (llc_isolated),
+        .aw_unit_busy_i (aw_unit_busy),
+        .ar_unit_busy_i (ar_unit_busy),
+        .w_desc_o (ax_desc[axi_llc_pkg::ArcaneWChan]),
+        .w_desc_valid_o (ax_desc_valid[axi_llc_pkg::ArcaneWChan]),
+        .w_desc_ready_i (ax_desc_ready[axi_llc_pkg::ArcaneWChan]),
+        .r_desc_o (ax_desc[axi_llc_pkg::ArcaneRChan]),
+        .r_desc_valid_o (ax_desc_valid[axi_llc_pkg::ArcaneRChan]),
+        .r_desc_ready_i (ax_desc_ready[axi_llc_pkg::ArcaneRChan]),
+        .req_o (arcane_req), // simplified axi req, just pass the required signals to  downstream
+        .rsp_i (arcane_resp) // simplified axi resp, just pass the required signals to downstream
+        );
+
+    // Isolation module before demux to easy flushing,
+    // AXI requests get stalled while flush is active
+
+    // OR isolate signal
+    assign llc_isolate = cfg_llc_isolate | arcane_llc_isolate;
+  `else
+    assign llc_isolate = cfg_llc_isolate;
+  `endif
+
   axi_isolate #(
     .NumPending     ( axi_llc_pkg::MaxTrans ),
     .AxiAddrWidth   ( AxiAddrWidth          ),
@@ -546,7 +619,7 @@ module axi_llc_top #(
 
   // arbitration tree which funnels the flush, read and write descriptors together
   rr_arb_tree #(
-    .NumIn    ( 32'd3      ),
+    .NumIn    ( axi_llc_pkg::NumArbTreeInputs ),
     .DataType ( llc_desc_t ),
     .AxiVldRdy( 1'b1       ),
     .LockIn   ( 1'b1       )
@@ -699,6 +772,48 @@ module axi_llc_top #(
     .cnt_down_o    ( cnt_down          )
   );
 
+  // MUX normal and ARCANE signals
+  // -----------------------------
+  // AXI request (data signals)
+  // TODO: check
+  // A mux is enough only if granted that the isolated signal remains high until
+  // all ops in arcane mode (cache_lock mode) are finished
+  // Otherwise need some bus like mechanism to keep track of which response is from which request
+  // CHECK that llc_isolated remains high after the unit has been isolated
+  // otherwise may need to use some signal telling the cache is locked from inside arcane_ctl
+  // AXI_MUX is usable but seems a little bit overcomplicate
+  // W Channel
+  `ifdef ARCANE_LLC
+    assign w_r_req.w = (llc_isolated) ? arcane_req.w : to_llc_req.w;
+    assign w_r_req.w_valid = (llc_isolated) ? arcane_req.w_valid : to_llc_req.w_valid;
+    assign to_llc_resp.w_ready = (llc_isolated) ? 1'b0 : w_r_resp.w_ready;
+    assign arcane_resp.w_ready = (llc_isolated) ? w_r_resp.w_ready : 1'b0;
+    // B channel
+    assign to_llc_resp.b_valid = (llc_isolated) ? 1'b0 : w_r_resp.b_valid;
+    assign arcane_resp.b_valid = (llc_isolated) ? w_r_resp.b_valid : 1'b0;
+    assign to_llc_resp.b = (llc_isolated) ? '0 : w_r_resp.b;
+    assign arcane_resp.b = (llc_isolated) ? w_r_resp.b : '0;
+    assign w_r_req.b_ready = (llc_isolated) ? arcane_req.b_ready : to_llc_req.b_ready;
+    // R channel
+    assign to_llc_resp.r_valid = (llc_isolated) ? 1'b0 : w_r_resp.r_valid;
+    assign arcane_resp.r_valid = (llc_isolated) ? w_r_resp.r_valid : 1'b0;
+    assign to_llc_resp.r = (llc_isolated) ? '0 : w_r_resp.r;
+    assign arcane_resp.r = (llc_isolated) ? w_r_resp.r : '0;
+    assign w_r_req.r_ready = (llc_isolated) ? arcane_req.r_ready : to_llc_req.r_ready;
+  `else
+    assign w_r_req.w = to_llc_req.w;
+    assign w_r_req.w_valid = to_llc_req.w_valid;
+    assign to_llc_resp.w_ready = w_r_resp.w_ready;
+    // B channel
+    assign to_llc_resp.b_valid = w_r_resp.b_valid;
+    assign to_llc_resp.b = w_r_resp.b;
+    assign w_r_req.b_ready = to_llc_req.b_ready;
+    // R channel
+    assign to_llc_resp.r_valid = w_r_resp.r_valid;
+    assign to_llc_resp.r = w_r_resp.r;
+    assign w_r_req.r_ready = to_llc_req.r_ready;
+  `endif
+
   // write unit
   axi_llc_write_unit #(
     .Cfg       ( Cfg          ),
@@ -715,12 +830,12 @@ module axi_llc_top #(
     .desc_i          ( write_desc                           ),
     .desc_valid_i    ( write_desc_valid                     ),
     .desc_ready_o    ( write_desc_ready                     ),
-    .w_chan_slv_i    ( to_llc_req.w                         ),
-    .w_chan_valid_i  ( to_llc_req.w_valid                   ),
-    .w_chan_ready_o  ( to_llc_resp.w_ready                  ),
-    .b_chan_slv_o    ( to_llc_resp.b                        ),
-    .b_chan_valid_o  ( to_llc_resp.b_valid                  ),
-    .b_chan_ready_i  ( to_llc_req.b_ready                   ),
+    .w_chan_slv_i    ( w_r_req.w                            ),
+    .w_chan_valid_i  ( w_r_req.w_valid                      ),
+    .w_chan_ready_o  ( w_r_resp.w_ready                     ),
+    .b_chan_slv_o    ( w_r_resp.b                           ),
+    .b_chan_valid_o  ( w_r_resp.b_valid                     ),
+    .b_chan_ready_i  ( w_r_req.b_ready                      ),
     .way_inp_o       ( to_way[axi_llc_pkg::WChanUnit]       ),
     .way_inp_valid_o ( to_way_valid[axi_llc_pkg::WChanUnit] ),
     .way_inp_ready_i ( to_way_ready[axi_llc_pkg::WChanUnit] ),
@@ -745,8 +860,8 @@ module axi_llc_top #(
     .desc_i          ( read_desc                            ),
     .desc_valid_i    ( read_desc_valid                      ),
     .desc_ready_o    ( read_desc_ready                      ),
-    .r_chan_slv_o    ( to_llc_resp.r                        ),
-    .r_chan_valid_o  ( to_llc_resp.r_valid                  ),
+    .r_chan_slv_o    ( w_r_resp.r                            ),
+    .r_chan_valid_o  ( w_r_resp.r_valid                      ),
     .r_chan_ready_i  ( to_llc_req.r_ready                   ),
     .way_inp_o       ( to_way[axi_llc_pkg::RChanUnit]       ),
     .way_inp_valid_o ( to_way_valid[axi_llc_pkg::RChanUnit] ),

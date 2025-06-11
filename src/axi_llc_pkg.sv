@@ -14,6 +14,8 @@ package axi_llc_pkg;
   typedef struct packed {
     /// AXI4+ATOP ID width of the slave port, CPU side, in bits
     int unsigned SlvPortIdWidth;
+    /// AXI4+ATOP User width in bits
+    int unsigned UserWidth;
     /// AXI4+ATOP address width of the ports for accessing the LLC, in bits
     int unsigned AddrWidthFull;
     /// AXI4+ATOP data width of the ports for accessing the LLC, in bits
@@ -268,12 +270,36 @@ package axi_llc_pkg;
   } cache_unit_e;
 
   /// Indicates which unit generates a descriptor
-  typedef enum logic [1:0] {
+  typedef enum logic [2:0] {
     /// AW channel splitter unit
-    AwChanUnit = 2'b00,
+    AwChanUnit  = 3'b000,
     /// AW channel splitter unit
-    ArChanUnit = 2'b01,
+    ArChanUnit  = 3'b001,
     /// Configuration module (Flush descriptors)
-    ConfigUnit = 2'b10
+    ConfigUnit  = 3'b010,
+    /// ARCANE Write Channel
+    ArcaneWChan = 3'b011,
+    /// ARCANE Read Channel
+    ArcaneRChan = 3'b100
   } desc_unit_e;
-endpackage
+
+
+  //----------------------------
+  // ARCANE dependent parameters
+  //----------------------------
+
+  // Number of bits of which the MainMem Address and the LLC address differ.
+  localparam int unsigned VirtAddrOffset = 32'd28;
+  // TODO: add main mem addresses and LLC start/end addresses for each instance
+  /// Number of inputs of the `axi_llc_top` RR arbiter
+  // 3 are normal inputs: AR, AW and flush
+  // +2 are for SW DMA R and W channels
+  
+  `ifdef ARCANE_LLC
+    localparam int unsigned NumArbTreeInputs = 32'd3 + 32'd2;
+  `else
+    localparam int unsigned NumArbTreeInputs = 32'd3;
+  `endif
+
+
+ endpackage
