@@ -49,6 +49,8 @@ state_t curr_state, next_state;
 
 // Critical case: the isolation can be also required when flushing, what happens in this case?
 // If in IDLE: at a certain point !ecpi_lock_req && llc_isolated_i
+// It does, if I have a req, but there is a flushing req in the same cycle, give priority to the flushing req
+// After the flushing is done, start processing the locking req
 //----------------
 // State evolution
 //----------------
@@ -68,13 +70,14 @@ always_comb begin
           next_state = ISOLATE;
         end
       end else if (!ecpu_lock_req_i) begin
-        if (ecpu_lock_i && llc_isolated_i) begin
-          // eCPU is locked, LLC is isolated, but no request to lock
-          // should never happen
-          next_state = LOCK; // Remain in LOCK state
-        end else begin
+        //if (ecpu_lock_i && llc_isolated_i) begin
+        //  // eCPU is locked, LLC is isolated, but no request to lock
+        //  // should never happen
+        // This case is critical if llc_isolated_i is caused by flush, so has to be managed differently
+        //  next_state = LOCK; // Remain in LOCK state
+        //end else begin
           next_state = IDLE;
-        end
+        //end
       end else begin
         // Illegal combinations
         next_state = LOCK_ERR;
@@ -127,19 +130,19 @@ always_comb begin
   case(curr_state)
     IDLE: begin
       ready_lock_o  = llc_isolated_i & ~aw_unit_busy_i & ~ar_unit_busy_i & ~ecpu_lock_i; // Mealy
-      //llc_isolate_o = ecpu_lock_req_i & ~ecpu_lock_i; // Mealy
+      llc_isolate_o = ecpu_lock_req_i & ~ecpu_lock_i; // Mealy
     end
     ISOLATE: begin
       ready_lock_o  = llc_isolated_i & ~aw_unit_busy_i & ~ar_unit_busy_i; // Mealy
-      //llc_isolate_o = 1'b1;
+      llc_isolate_o = 1'b1;
     end
     LOCK: begin
       ready_lock_o  = 1'b1; // Ready to unlock if required
-      //llc_isolate_o = ~ecpu_lock_req_i & ecpu_lock_i; // Keep LLC isolated until request to unlock
+      llc_isolate_o = ~ecpu_lock_req_i & ecpu_lock_i; // Keep LLC isolated until request to unlock
     end
     LOCK_ERR: begin
       // In error state, do not change the lock or isolation status
-      //llc_isolate_o = 1'b1; // Isolate LLC if not isolate
+      llc_isolate_o = 1'b1; // Isolate LLC if not isolate
     end
     default: begin
       // Default case to handle unexpected states
