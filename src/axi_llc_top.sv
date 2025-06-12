@@ -228,6 +228,7 @@ module axi_llc_top #(
   output axi_llc_pkg::events_t axi_llc_events_o
 );
   `include "axi/typedef.svh"
+  `include "register_interface/typedef.svh"
 
   // Axi parameters are accumulated in a struct for further use.
   localparam axi_llc_pkg::llc_axi_cfg_t AxiCfg = axi_llc_pkg::llc_axi_cfg_t'{
@@ -414,6 +415,10 @@ module axi_llc_top #(
   axi_data_req_t w_r_req;
   axi_data_resp_t w_r_resp;
 
+  // ARCANE reg signals
+  // ------------------
+  `REG_BUS_TYPEDEF_ALL(conf, logic [31:0], logic [31:0], logic [3:0])
+
   // define address rules from the address ports, propagate it throughout the design
   rule_full_t cached_addr_rule;
   rule_full_t spm_addr_rule;
@@ -492,7 +497,9 @@ module axi_llc_top #(
       .desc_t ( llc_desc_t ),
       .axi_data_req_t  ( axi_data_req_t),
       .axi_data_resp_t ( axi_data_resp_t),
-      .rule_t          ( rule_full_t  )
+      .rule_t          ( rule_full_t  ),
+      .reg_req_t       ( conf_req_t),
+      .reg_rsp_t       ( conf_rsp_t)
     ) i_axi_llc_arcane_ctl (
         .clk_i,
         .rst_ni,
@@ -659,7 +666,9 @@ module axi_llc_top #(
     .lock_t       ( lock_t       ),
     .cnt_t        ( cnt_t        ),
     .way_ind_t    ( way_ind_t    ),
-    .PrintSramCfg ( PrintSramCfg )
+    .PrintSramCfg ( PrintSramCfg ),
+    .reg_req_t    ( conf_req_t),
+    .reg_rsp_t    ( conf_rsp_t)
   ) i_hit_miss_unit (
     .clk_i,
     .rst_ni,
@@ -682,7 +691,9 @@ module axi_llc_top #(
     .r_unlock_gnt_o ( r_unlock_gnt ),
     .cnt_down_i     ( cnt_down     ),
     .bist_res_o     ( bist_res     ),
-    .bist_valid_o   ( bist_valid   )
+    .bist_valid_o   ( bist_valid   ),
+    .reg_req_i      ( '0           ), // TODO: connect to eCPU regs
+    .reg_rsp_o      (            ) // TODO: connect to eCPU regs
   );
 
   axi_llc_evict_unit #(

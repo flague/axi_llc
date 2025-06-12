@@ -24,7 +24,10 @@ module axi_llc_arcane_ctl #(
   /// Groups W/R/B responses together
   parameter type axi_data_resp_t = logic,
   /// Address rule type definitions for the AXI slave port.
-    parameter type rule_t = axi_pkg::xbar_rule_64_t
+  parameter type rule_t = axi_pkg::xbar_rule_64_t,
+  /// Register interface types
+  parameter type reg_req_t = logic,
+  parameter type reg_rsp_t = logic
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -32,8 +35,8 @@ module axi_llc_arcane_ctl #(
   // eCPU interface
   // --------------
   /// DMA interface
-  input  logic dma_reg_req_i,
-  output logic dma_reg_rsp_o,
+  input  reg_req_t dma_reg_req_i,
+  output reg_rsp_t dma_reg_rsp_o,
   /// Src/Dst allocation signals
   input  logic ecpu_src_dst_alloc_i,
   /// Locking signals
@@ -140,6 +143,11 @@ axi_llc_arcane_fsm i_arcane_fsm (
 // TODO: missing sw dma
 assign dma_read_obi_req ='0;
 assign dma_write_obi_req ='0;
+
+// TODO: check how req are treated when cache is not locked.
+// Should have a HW mechanism thatt guarantees they are gated, so that mem cannot
+// be compromised in those cases.
+
 
 //-------------------
 // OBI2AXI converters

@@ -47,6 +47,9 @@ module axi_llc_hit_miss #(
   parameter type                       cnt_t     = logic,
   /// Way indicator, is a onehot signal with width: `Cfg.SetAssociativity`.
   parameter type                       way_ind_t = logic,
+  /// Register request and response types
+  parameter type                       reg_req_t = logic,
+  parameter type                       reg_rsp_t = logic,
   /// Whether to print SRAM configs
   parameter bit                        PrintSramCfg = 0
 ) (
@@ -82,7 +85,11 @@ module axi_llc_hit_miss #(
   input  cnt_t     cnt_down_i,
   // bist aoutput
   output way_ind_t bist_res_o,
-  output logic     bist_valid_o
+  output logic     bist_valid_o,
+  // Register interface
+  // ------------------
+  input  reg_req_t reg_req_i,
+  output reg_rsp_t reg_rsp_o
 );
   `include "common_cells/registers.svh"
   localparam int unsigned IndexBase = Cfg.ByteOffsetLength + Cfg.BlockOffsetLength;
@@ -513,6 +520,8 @@ module axi_llc_hit_miss #(
     .way_ind_t    ( way_ind_t    ),
     .store_req_t  ( store_req_t  ),
     .store_res_t  ( store_res_t  ),
+    .reg_req_t    (reg_req_t     ),
+    .reg_rsp_t    (reg_rsp_t     ),
     .PrintSramCfg ( PrintSramCfg )
   ) i_tag_store (
     .clk_i,
@@ -527,7 +536,9 @@ module axi_llc_hit_miss #(
     .valid_o      ( store_res_valid ),
     .ready_i      ( store_res_ready ),
     .bist_res_o   ( bist_res_o      ),
-    .bist_valid_o ( bist_valid_o    )
+    .bist_valid_o ( bist_valid_o    ),
+    .reg_req_i    ( reg_req_i       ),
+    .reg_rsp_o    ( reg_rsp_o       )
   );
 
   // inputs to the miss counter unit

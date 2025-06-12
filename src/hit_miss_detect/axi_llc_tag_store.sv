@@ -30,6 +30,10 @@ module axi_llc_tag_store #(
   parameter type store_req_t = logic,
   /// Type of the response payload expected from the tag storage
   parameter type store_res_t = logic,
+  /// Type of the register request
+  parameter type reg_req_t = logic,
+  /// Type of the register response
+  parameter type reg_rsp_t = logic,
   /// Whether to print SRAM configs
   parameter bit  PrintSramCfg = 0
 ) (
@@ -64,7 +68,11 @@ module axi_llc_tag_store #(
   /// corresponding tag storage SRAM macro failed the test.
   output way_ind_t   bist_res_o,
   /// BIST output is valid.
-  output logic       bist_valid_o
+  output logic       bist_valid_o,
+  // Register interface
+  // ------------------
+  input  reg_req_t reg_req_i,
+  output reg_rsp_t reg_rsp_o
 );
 
   // typedef, because we use in this module many signals with the width of SetAssiciativity
@@ -355,11 +363,6 @@ module axi_llc_tag_store #(
   // New wrapper block for tag and status storage.
   //----------------------------------------------
   // ---------------------------------------------
- 
-  `include "register_interface/typedef.svh"
-
-  // Define the register bus types
-  `REG_BUS_TYPEDEF_ALL(conf, logic [31:0], logic [31:0], logic [3:0])
   
   `ifdef TARGET_ARCANE_LLC
     //----------------------------------------
@@ -368,8 +371,8 @@ module axi_llc_tag_store #(
     tag_data_t [Cfg.SetAssociativity-1:0] ram_ways_rdata;
     // Not parametric as it is templated
     axi_llc_status_tag_reg_wrap #(
-      .reg_req_t   (conf_req_t),
-      .reg_rsp_t   (conf_rsp_t),
+      .reg_req_t   (reg_req_t),
+      .reg_rsp_t   (reg_rsp_t),
       .Cfg         ( Cfg                          ),
       //.NumWords    ( Cfg.NumLines                 ), // templated
       .DataWidth   ( TagStatusDataLen             ),
@@ -382,8 +385,8 @@ module axi_llc_tag_store #(
       .clk_i        ( clk_i        ),
       .rst_ni       ( rst_ni       ),
       // SW interface
-      .reg_req_i    ( '0),  // TODO: connect to the eCPU
-      .reg_rsp_o    ( ),    // TODO: connect to the eCPU
+      .reg_req_i    ( reg_req_i),
+      .reg_rsp_o    ( reg_rsp_o),
       // HW interface
       .ram_req_i    ( ram_req      ),
       .ram_we_i     ( ram_we       ),
@@ -397,8 +400,8 @@ module axi_llc_tag_store #(
     //----------------------------------------
     status_t [Cfg.SetAssociativity-1:0] ram_rdata_status; // read status from the sram
     axi_llc_status_reg_wrap #(
-      .reg_req_t   (conf_req_t),
-      .reg_rsp_t   (conf_rsp_t),
+      .reg_req_t   (reg_req_t),
+      .reg_rsp_t   (reg_rsp_t),
       .Cfg         ( Cfg                          ),
       //.NumWords    ( Cfg.NumLines                 ), // templated
       .DataWidth   ( Cfg.StatusTypes              ),
@@ -411,8 +414,8 @@ module axi_llc_tag_store #(
       .clk_i        ( clk_i        ),
       .rst_ni       ( rst_ni       ),
       // SW interface
-      .reg_req_i    ( '0),  // TODO: connect to the eCPU
-      .reg_rsp_o    ( ),    // TODO: connect to the eCPU
+      .reg_req_i    ( reg_req_i),
+      .reg_rsp_o    ( reg_rsp_o),
       // HW interface
       .ram_req_i    ( ram_req      ),
       .ram_we_i     ( ram_we       ),
