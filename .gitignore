@@ -14,3 +14,16 @@ pickle
 doc/morty*
 bender
 morty*
+
+
+
+// Templated files
+src/axi_llc_status_reg_wrap.sv
+src/axi_llc_status_tag_reg_wrap.sv
+src/axi_llc_status_tag_reg_pkg.sv
+src/axi_llc_status_tag_reg_top.sv
+src/axi_llc_status_reg_pkg.sv
+src/axi_llc_status_reg_pkg.sv
+data/axi_llc_status_regs.hjson
+data/axi_llc_status_tag_regs.hjson
+test/tb_axi_llc.sv
