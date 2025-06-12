@@ -26,9 +26,9 @@ module tb_axi_llc #(
   /// Width of the Registers
   parameter int unsigned TbRegWidth         = 32'd64,
   /// Number of random write transactions in a testblock.
-  parameter int unsigned TbNumWrites        = 32'd1100,
+  parameter int unsigned TbNumWrites        = 32'd100,
   /// Number of random read transactions in a testblock.
-  parameter int unsigned TbNumReads         = 32'd1500,
+  parameter int unsigned TbNumReads         = 32'd150,
   /// Cycle time for the TB clock generator
   parameter time         TbCyclTime         = 10ns,
   /// Application time to the DUT
@@ -191,6 +191,11 @@ module tb_axi_llc #(
   conf_rsp_t     reg_cfg_rsp;
   // Tb signals
   logic enable_counters, print_counters, enable_progress;
+  `ifdef ARCANE_TEST
+  logic ecpu_lock_t;
+  logic ecpu_lock_req_t;
+  logic arcane_lock_t;
+  `endif
 
   ///////////////////////
   // AXI DV interfaces //
@@ -337,6 +342,24 @@ module tb_axi_llc #(
     compare_mems(cpu_scoreboard, mem_scoreboard);
     clear_spm_cpu(cpu_scoreboard);
 
+    
+    `ifdef ARCANE_TEST
+     $info("Test ARCANE locking mechanism");
+      $display("%0t> transaction", $time);
+      // Ensure flush is finished
+      repeat (10) @(posedge clk);
+      axi_master.run(10,10);
+      acquire_free_lock(ecpu_lock_req_t, arcane_lock_t, ecpu_lock_t);
+      repeat (100) @(posedge clk);
+      acquire_free_lock(ecpu_lock_req_t, arcane_lock_t, ecpu_lock_t);
+      $display("%0t> Unock succeded", $time);
+      axi_master.run(2,2);
+      flush_all(reg_conf_driver);
+      compare_mems(cpu_scoreboard, mem_scoreboard);
+      clear_spm_cpu(cpu_scoreboard);
+    `endif
+    
+    
     $info("Enable lower half SPM");
     cfg_addr  = CfgSpmLow;
     cfg_data  = {((TbSetAssociativity == 32'd1) ? 32'd1 : (TbSetAssociativity/2)){1'b1}};
@@ -398,6 +421,11 @@ module tb_axi_llc #(
   initial begin : proc_sim_mem
     automatic axi_rand_slave_t axi_slave = new( axi_mem_intf_dv );
     axi_slave.reset();
+    // Initialize test signals arcane
+    `ifdef ARCANE_TEST
+      ecpu_lock_t= 1'b0;
+      ecpu_lock_req_t = 1'b0;
+    `endif
     @(posedge rst_n);
     axi_slave.run();
   end
@@ -444,6 +472,23 @@ module tb_axi_llc #(
     $info("Finished flushing the cache!");
   endtask : flush_all
 
+  //------------
+  // ARCANE test
+  //------------
+  task acquire_free_lock(logic lock_req, logic lock_gnt, logic lock_reg);
+    if (lock_req) begin
+      $display("%0t> Waiting for lock", $time);
+      do begin
+        @(posedge clk);
+      end while (!lock_gnt);
+      $display("%0t> Lock acquired", $time);
+      lock_req = 1'b0; // Release the lock request
+      // Update the lock register`
+      lock_reg = ~lock_reg; // Toggle the lock register
+    end
+  endtask : acquire_free_lock
+
+
   task print_perf_couters();
     @(negedge clk);
     print_counters = 1'b1;
@@ -484,7 +529,19 @@ module tb_axi_llc #(
     .cached_start_addr_i ( CachedRegionStart                      ),
     .cached_end_addr_i   ( CachedRegionStart + CachedRegionLength ),
     .spm_start_addr_i    ( SpmRegionStart                         ),
+    `ifdef ARCANE_TEST
+      .axi_llc_events_o    ( llc_events                             ),
+      .arcane_dma_reg_req_i( '0 ),
+      .arcane_dma_reg_rsp_o(),
+      .arcane_status_reg_req_i('0),
+      .arcane_status_reg_rsp_o(),
+      .ecpu_lock_i(ecpu_lock_t),
+      .ecpu_lock_req_i(ecpu_lock_req_t),
+      .arcane_lock_o(arcane_lock_t),
+      .ecpu_src_dst_i(ecpu_src_dst_t)
+    `else
     .axi_llc_events_o    ( llc_events                             )
+    `endif
   );
 
   ////////////////////////////

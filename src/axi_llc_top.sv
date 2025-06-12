@@ -190,6 +190,10 @@ module axi_llc_top #(
   /// Address type of the AXI4+ATOP ports.
   /// The address fields of the rule type have to be the same.
   parameter type axi_addr_t     = logic[AxiAddrWidth-1:0],
+  /// Register type
+  // Note: useful only in case of test
+  parameter type reg_req_t     = logic,
+  parameter type reg_rsp_t     = logic,
   /// Dependent parameter, do **not** overwrite!
   /// Data type of set associativity wide registers
   parameter type way_ind_t      = logic[SetAssociativity-1:0]
@@ -225,7 +229,19 @@ module axi_llc_top #(
   /// Events output, for tracked events see `axi_llc_pkg`.
   ///
   /// When not used, leave open.
-  output axi_llc_pkg::events_t axi_llc_events_o
+  `ifdef ARCANE_TEST
+    output axi_llc_pkg::events_t axi_llc_events_o,
+    input  reg_req_t arcane_dma_reg_req_i,  // ARCANE register request
+    output reg_rsp_t arcane_dma_reg_rsp_o, // ARCANE register response
+    input  reg_req_t arcane_status_reg_req_i,
+    output reg_rsp_t arcane_status_reg_rsp_o, // ARCANE status register response
+    input  logic ecpu_lock_i,
+    input  logic ecpu_lock_req_i, // ECPU lock request
+    output logic arcane_lock_o, // ARCANE lock output
+    input  logic ecpu_src_dst_i
+  `else
+    output axi_llc_pkg::events_t axi_llc_events_o
+  `endif
 );
   `include "axi/typedef.svh"
   `include "register_interface/typedef.svh"
@@ -487,6 +503,27 @@ module axi_llc_top #(
     axi_data_req_t arcane_req;
     axi_data_resp_t arcane_resp;
 
+    `ifndef ARCANE_TEST
+      // ARCANE register request and response
+      reg_req_t arcane_dma_reg_req_i;
+      reg_rsp_t arcane_dma_reg_rsp_o;
+      reg_req_t arcane_status_reg_req_i;
+      reg_rsp_t arcane_status_reg_rsp_o;
+      
+      // ECPU lock signals
+      logic ecpu_lock_i;
+      logic ecpu_lock_req_i;
+      logic arcane_lock_o;
+      // ECPU source and destination allocation signal
+      logic ecpu_src_dst_i;
+
+      assign arcane_dma_reg_req_i = '0; // No ARCANE register request
+      assign arcane_status_reg_req_i = '0; // No ARCANE status register request
+      assign ecpu_lock_i = 1'b0; // No ECPU lock
+      assign ecpu_lock_req_i = 1'b0; // No ECPU lock request
+      assign ecpu_src_dst_i = 1'b0; // No ECPU source and destination allocation
+    `endif
+
     // Cache ctl handling
     // TODO: handling of flush mode and spm mode while ARCANE is "active"
     // TODO: handling of bypass mem regions
@@ -503,12 +540,12 @@ module axi_llc_top #(
     ) i_axi_llc_arcane_ctl (
         .clk_i,
         .rst_ni,
-        .dma_reg_req_i ('0),        // TODO: connect to eCPU regs
-        .dma_reg_rsp_o (),          // TODO: connect to eCPU regs
-        .ecpu_llc_lock_i ('0),      // TODO: connect to eCPU regs
-        .ecpu_llc_lock_req_i ('0),  // TODO: connect to eCPU regs
-        .arcane_llc_lock_o (),          // TODO: connect to eCPU regs
-        .ecpu_src_dst_alloc_i ('0), // TODO: connect to eCPU regs
+        .dma_reg_req_i (arcane_dma_reg_req_i),        // TODO: connect to eCPU regs
+        .dma_reg_rsp_o (arcane_dma_reg_rsp_o),          // TODO: connect to eCPU regs
+        .ecpu_llc_lock_i (ecpu_lock_i),      // TODO: connect to eCPU regs
+        .ecpu_llc_lock_req_i (ecpu_lock_req_i),  // TODO: connect to eCPU regs
+        .arcane_llc_lock_o (arcane_lock_o),          // TODO: connect to eCPU regs
+        .ecpu_src_dst_alloc_i (ecpu_src_dst_i), // TODO: connect to eCPU regs
         .llc_isolate_o (arcane_llc_isolate),
         .llc_isolated_i (llc_isolated),
         .aw_unit_busy_i (aw_unit_busy),
@@ -692,8 +729,8 @@ module axi_llc_top #(
     .cnt_down_i     ( cnt_down     ),
     .bist_res_o     ( bist_res     ),
     .bist_valid_o   ( bist_valid   ),
-    .reg_req_i      ( '0           ), // TODO: connect to eCPU regs
-    .reg_rsp_o      (            ) // TODO: connect to eCPU regs
+    .reg_req_i      ( arcane_status_reg_req_i), // TODO: connect to eCPU regs
+    .reg_rsp_o      ( arcane_status_reg_rsp_o) // TODO: connect to eCPU regs
   );
 
   axi_llc_evict_unit #(
