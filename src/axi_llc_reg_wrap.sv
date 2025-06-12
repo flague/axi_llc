@@ -224,10 +224,31 @@ module axi_llc_reg_wrap #(
   /// `spm_end_addr` = `spm_start_addr_i` +
   ///     `SetAssociativity` * `NumLines` * `NumBlocks` * (`AxiCfg.DataWidthFull/8`)
   input axi_addr_t spm_start_addr_i,
+  `ifdef ARCANE_TEST
   /// Events output, for tracked events see `axi_llc_pkg`.
   ///
   /// When not used, leave open.
+  output axi_llc_pkg::events_t axi_llc_events_o,
+  /// Arcane dma register request, used for testing purposes.
+  input reg_req_t arcane_dma_reg_req_i,
+  /// Arcane dma register response, used for testing purposes.
+  output reg_resp_t arcane_dma_reg_rsp_o,
+  /// Arcane status register request, used for testing purposes.
+  input reg_req_t arcane_status_reg_req_i,
+  /// Arcane status register response, used for testing purposes.
+  output reg_resp_t arcane_status_reg_rsp_o,
+  /// ECPU lock signal, used for testing purposes.
+  input logic ecpu_lock_i,
+  /// ECPU lock request, used for testing purposes.
+  input logic ecpu_lock_req_i,
+  /// Arcane lock output, used for testing purposes.
+  output logic arcane_lock_o,
+  /// ECPU source/destination signal, used for testing purposes.
+  input logic ecpu_src_dst_i
+  `else
+  // No Arcane test signals
   output axi_llc_pkg::events_t axi_llc_events_o
+  `endif
 );
 
   // Define 64-bit register types for the AXI_LLC toplevel
@@ -244,6 +265,27 @@ module axi_llc_reg_wrap #(
   // Connecting the generated register file structs and the AXI_LLC register structs
   `AXI_LLC_ASSIGN_REGS_Q_FROM_REGBUS(config_regs_q, config_reg2hw)
   `AXI_LLC_ASSIGN_REGBUS_FROM_REGS_D(config_hw2reg, config_regs_d)
+
+
+  `ifndef ARCANE_TEST
+    // ARCANE register request and response
+    reg_req_t arcane_dma_reg_req_i;
+    reg_resp_t arcane_dma_reg_rsp_o;
+    reg_req_t arcane_status_reg_req_i;
+    reg_resp_t arcane_status_reg_rsp_o;
+    
+    // ECPU lock signals
+    logic ecpu_lock_i;
+    logic ecpu_lock_req_i;
+    logic arcane_lock_o;
+    // ECPU source and destination allocation signal
+    logic ecpu_src_dst_i;
+    assign arcane_dma_reg_req_i = '0; // No ARCANE register request
+    assign arcane_status_reg_req_i = '0; // No ARCANE status register request
+    assign ecpu_lock_i = 1'b0; // No ECPU lock
+    assign ecpu_lock_req_i = 1'b0; // No ECPU lock request
+    assign ecpu_src_dst_i = 1'b0; // No ECPU source and destination allocation
+  `endif
 
   // Generated 32-bit RegBus register file
   axi_llc_reg_top #(
@@ -285,6 +327,8 @@ module axi_llc_reg_wrap #(
     .mst_req_t        ( mst_req_t             ),
     .mst_resp_t       ( mst_resp_t            ),
     .rule_full_t      ( rule_full_t           ),
+    .reg_req_t        ( reg_req_t             ),
+    .reg_rsp_t        ( reg_resp_t             ),
     .PrintSramCfg     ( PrintSramCfg          )
   ) i_axi_llc_top_raw (
     .clk_i,
@@ -301,7 +345,19 @@ module axi_llc_reg_wrap #(
     .cached_start_addr_i,
     .cached_end_addr_i,
     .spm_start_addr_i,
+    `ifdef ARCANE_TEST
+    .axi_llc_events_o,
+    .arcane_dma_reg_req_i (arcane_dma_reg_req_i ),
+    .arcane_dma_reg_rsp_o (arcane_dma_reg_rsp_o ),
+    .arcane_status_reg_req_i (arcane_status_reg_req_i ),
+    .arcane_status_reg_rsp_o (arcane_status_reg_rsp_o ),
+    .ecpu_lock_i      (ecpu_lock_i ),
+    .ecpu_lock_req_i  (ecpu_lock_req_i),
+    .arcane_lock_o    (arcane_lock_o),
+    .ecpu_src_dst_i   (ecpu_src_dst_i)
+    `else
     .axi_llc_events_o
+    `endif
   );
 
 endmodule
