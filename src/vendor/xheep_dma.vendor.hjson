@@ -1,0 +1,14 @@
+{
+  name: "dma",
+  target_dir: "dma",
+
+  upstream: {
+    url: "https://github.com/esl-epfl/x-heep.git",
+    rev: "main",
+    only_subdir:"hw/ip/dma",
+  },
+
+  patch_dir: "patches/dma",
+
+  
+}
