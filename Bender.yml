@@ -56,7 +56,7 @@ sources:
     files:
       # Level 0
       - src/axi_llc_pkg.sv
-      - src/arcane_ctl/arcane_obi_pkg.sv
+      - src/arcane_ctl/include/obi_pkg.sv
       - src/axi_llc_burst_cutter.sv
       - src/axi_llc_data_way.sv
       - src/axi_llc_merge_unit.sv

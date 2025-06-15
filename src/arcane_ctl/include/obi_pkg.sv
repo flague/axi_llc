@@ -4,7 +4,7 @@
  *
  */
 
-package arcane_obi_pkg;
+package obi_pkg;
 
   typedef struct packed {
     logic        req;

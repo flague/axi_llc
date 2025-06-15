@@ -106,14 +106,14 @@ typedef logic [AxiCfg.UserWidth-1:0]      axi_user_t;
 //`REG_BUS_TYPEDEF_ALL(conf, logic [31:0], logic [31:0], logic [3:0])
 
 // DMA Read
-arcane_obi_pkg::obi_req_t dma_read_obi_req;
-arcane_obi_pkg::obi_resp_t dma_read_obi_resp;
+obi_pkg::obi_req_t dma_read_obi_req;
+obi_pkg::obi_resp_t dma_read_obi_resp;
 axi_req_t dma_read_axi_req;
 axi_resp_t dma_read_axi_resp;
 
 // DMA Write
-arcane_obi_pkg::obi_req_t dma_write_obi_req;
-arcane_obi_pkg::obi_resp_t dma_write_obi_resp;
+obi_pkg::obi_req_t dma_write_obi_req;
+obi_pkg::obi_resp_t dma_write_obi_resp;
 axi_req_t dma_write_axi_req;
 axi_resp_t dma_write_axi_resp;
 
@@ -163,8 +163,8 @@ core2axi_wrap #(
   .AXI4_USER_WIDTH(AxiCfg.UserWidth),
   .axi_req_t(axi_req_t),
   .axi_resp_t(axi_resp_t),
-  .obi_req_t(arcane_obi_pkg::obi_req_t),
-  .obi_resp_t(arcane_obi_pkg::obi_resp_t)
+  .obi_req_t(obi_pkg::obi_req_t),
+  .obi_resp_t(obi_pkg::obi_resp_t)
 ) i_arcane_core2axi_r (
   .clk_i(clk_i),
   .rst_ni(rst_ni),
@@ -186,8 +186,8 @@ core2axi_wrap #(
   .AXI4_USER_WIDTH(AxiCfg.UserWidth),
   .axi_req_t(axi_req_t),
   .axi_resp_t(axi_resp_t),
-  .obi_req_t(arcane_obi_pkg::obi_req_t),
-  .obi_resp_t(arcane_obi_pkg::obi_resp_t)
+  .obi_req_t(obi_pkg::obi_req_t),
+  .obi_resp_t(obi_pkg::obi_resp_t)
 ) i_arcane_core2axi_w (
   .clk_i(clk_i),
   .rst_ni(rst_ni),
