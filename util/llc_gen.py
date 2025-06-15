@@ -29,11 +29,16 @@ def write_template(tpl_path, outdir, **kwargs):
                 f.write(code)
         else:
             raise FileNotFoundError(f'Template file {tpl_path} not found')
-    
+
+def get_dma_mode(mode_en):
+    if mode_en == 'yes' or mode_en == 'true' or mode_en == '1':
+        return 1
+    else:
+        return 0  
 
 def main():
     # Parser for command line arguments
-    parser = argparse.ArgumentParser(prog='l1-gen.py', description='Generate C/HJSON/SystemVerilog configuration files.')
+    parser = argparse.ArgumentParser(prog='llc_gen.py', description='Generate C/HJSON/SystemVerilog configuration files.')
     parser.add_argument('--cfg', 
                         '-c', 
                         metavar='FILE',
@@ -128,8 +133,8 @@ def main():
 
 
     
-    # CORE-V-MINI-MCU configuration
-    # -----------------------------
+    # ARCANE configuration
+    # --------------------
     cpu = cfg['cpu']
     # Controller subsystem 
     #---------------------
@@ -194,6 +199,15 @@ def main():
     dma_reg_start_address_hex = int2hexstr(dma_reg_start_address, 32)
     dma_reg_size = int(cfg['dma_regs']['size'])
     dma_reg_size_hex = int2hexstr(dma_reg_size, 32)
+
+    # -------------------------
+    # DMA configurable features
+    # -------------------------
+    # TODO: for now simply use parameters, then use functions
+    dma_addr_mode    = get_dma_mode(cfg['dma']['addr_mode_en'])
+    dma_subaddr_mode = get_dma_mode(cfg['dma']['subaddr_mode_en'])
+    dma_hw_fifo_mode = get_dma_mode(cfg['dma']['hw_fifo_mode_en'])
+    dma_zero_padding = get_dma_mode(cfg['dma']['zero_padding_en'])
 
     # Cache configuration
     cache_block_size = int(cfg['cache_table']['block_size'])
@@ -307,6 +321,10 @@ def main():
         'dma_reg_num': dma_reg_num,
         'dma_reg_start_address': dma_reg_start_address_hex,
         'dma_reg_size': dma_reg_size_hex,
+        'dma_addr_mode': dma_addr_mode,
+        'dma_subaddr_mode': dma_subaddr_mode,
+        'dma_hw_fifo_mode': dma_hw_fifo_mode,
+        'dma_zero_padding': dma_zero_padding,
         'emem_start_address': emem_start_address_hex,
         'emem_size': emem_size_hex,
         'emem_runtime_size': emem_runtime_size,

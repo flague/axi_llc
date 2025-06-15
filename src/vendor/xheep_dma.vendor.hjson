@@ -8,7 +8,5 @@
     only_subdir:"hw/ip/dma",
   },
 
-  patch_dir: "patches/dma",
-
-  
+  patch_dir: "patches/dma",  
 }

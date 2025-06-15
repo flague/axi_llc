@@ -58,6 +58,22 @@
       size : 3072, // conf regs size (addressable conf regs, as status)
     }
 
+    dma: {
+        #offset:  0x00030000  
+        #length:  0x00010000
+        #ch_length:    0x100
+        #num_channels:   0x1
+        #num_master_ports: 0x1
+        #num_channels_per_master_port: 0x1
+        #fifo_depth: 0x0
+        addr_mode_en: "no"
+        subaddr_mode_en: "no"
+        hw_fifo_mode_en: "no"
+        zero_padding_en: "no"
+        #path:    "./hw/ip/dma/data/dma.hjson"
+    }
+
+
     addr_table: {
       num_lines: 8, // max num of source and dest supported at the same time
       size : 3072,
