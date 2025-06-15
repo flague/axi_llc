@@ -10,6 +10,9 @@ import logging
 from jsonref import JsonRef
 from mako.template import Template
 from gen_support import *
+import arcane_gen.load_config
+from arcane_gen.load_config import load_peripherals_config
+from arcane_gen.system import BusType
 
 # Compile a regex to trim trailing whitespaces on lines
 re_trailws = re.compile(r'[ \t\r]+$', re.MULTILINE)
@@ -56,6 +59,32 @@ def main():
                         type=pathlib.Path,
                         required=True,
                         help='Output directory')
+    
+    # Parser architecture arguments
+    parser.add_argument(
+        "--cpu",
+        metavar="cv32e20,cv32e40p,cv32e40x,cv32e40px",
+        nargs="?",
+        default="",
+        help="CPU type (default value from cfg file)",
+    )
+
+    parser.add_argument(
+        "--bus",
+        metavar="onetoM,NtoM",
+        nargs="?",
+        default="",
+        help="Bus type (default value from cfg file)",
+    )
+    
+    parser.add_argument(
+        "--memorybanks",
+        metavar="from 2 to 16",
+        nargs="?",
+        default="",
+        help="Number of 32KB Banks (default value from cfg file)",
+    )
+
     parser.add_argument('--tpl-sv',
                         '-s',
                         type=str,
@@ -84,7 +113,8 @@ def main():
     # Read HJSON configuration file
     with args.cfg as f:
         try:
-            cfg = hjson.load(f, use_decimal=True)
+            srcfull = f.read()
+            cfg = hjson.load(srcfull, use_decimal=True)
             cfg = JsonRef.replace_refs(cfg)
         except ValueError as exc:
             raise SystemExit(sys.exc_info()[1]) from exc
@@ -95,8 +125,10 @@ def main():
 
     # Create output directory
     args.outdir.mkdir(parents=True, exist_ok=True)
-
+    
+    # -------
     # Kernels
+    # -------
     kernels = []
     for i in range(cfg["max_kernels"]):
         kernels.append(
@@ -131,11 +163,40 @@ def main():
     if args.enc is not None:
         parseEncodingFile(args.enc, kernels)
 
-
-    
+    # --------------------
     # ARCANE configuration
     # --------------------
-    cpu = cfg['cpu']
+    config_override = arcane_gen.system.Override(None, None, None)
+    
+    # CPU config 
+    # ----------
+    if args.cpu != None and args.cpu != "":
+        cpu_type = args.cpu
+    else:
+        cpu_type = cfg["cpu"]
+    
+    # Bus config
+    # ----------
+    if args.bus != None and args.bus != "":
+        config_override.bus_type = BusType(args.bus)
+    
+    # Memory banks
+    # ------------
+    
+    if args.memorybanks != None and args.memorybanks != "":
+        config_override.numbanks = int(args.memorybanks)
+
+    # TODO: may add SPI connection when available
+
+    # TODO: check this is correct
+    arcane = arcane_gen.load_config.load_cfg_file(
+        pathlib.PurePath(str(args.cfg)), config_override
+    )
+    # TODO: check what this does. Careful if there are not only per in this file
+    load_peripherals_config(arcane, args.cfg.name)
+
+
+
     # Controller subsystem 
     #---------------------
     # Configuration registers
