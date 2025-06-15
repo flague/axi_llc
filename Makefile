@@ -97,6 +97,21 @@ regs: llc-gen
 		$(REGGEN) -r --outdir src/ data/axi_llc_status_tag_regs.hjson
 	$(REGGEN) --cdefines --outfile sw/include/axi_llc_status_tag_regs.h data/axi_llc_status_tag_regs.hjson
 
+# ---------
+# Utilities
+# ---------
+clean-lock:
+	$(RM) $(BUILD_DIR)/.*.lock
+
+
+# Update vendored IPs
+.PHONY: vendor-update
+vendor-update:
+	@echo "### Updating vendored IPs..."
+	find src/vendor -maxdepth 1 -type f -name "*.vendor.hjson" -exec python3 util/vendor.py -vU '{}' \;
+	find src/vendor -maxdepth 1 -type f -name "*.vendor.hjson" -exec python3 util/vendor.py -vU '{}' \;
+	$(MAKE) clean-lock
+
 # --------------
 # QuestaSim
 # --------------
