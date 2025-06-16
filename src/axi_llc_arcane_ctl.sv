@@ -183,12 +183,16 @@ dma #(
 
 // Read ch converter
 // -----------------
-core2axi_wrap #(
-  .AXI4_ADDRESS_WIDTH(AxiCfg.AddrWidthFull),
+axi_from_obi #(
+  .AXI4_ADDR_WIDTH(AxiCfg.AddrWidthFull),
   .AXI4_RDATA_WIDTH(AxiCfg.DataWidthFull), //64-bit
   .AXI4_WDATA_WIDTH(AxiCfg.DataWidthFull),
   .AXI4_ID_WIDTH(AxiCfg.SlvPortIdWidth),
   .AXI4_USER_WIDTH(AxiCfg.UserWidth),
+  .OBI_ADDR_WIDTH(32),
+  .OBI_RDATA_WIDTH(32),
+  .OBI_WDATA_WIDTH(32),
+  .MAX_REQUESTS(1),
   .axi_req_t(axi_req_t),
   .axi_resp_t(axi_resp_t),
   .obi_req_t(obi_pkg::obi_req_t),
@@ -206,8 +210,8 @@ core2axi_wrap #(
 
 // Write ch converter
 // ------------------
-core2axi_wrap #(
-  .AXI4_ADDRESS_WIDTH(AxiCfg.AddrWidthFull),
+axi_from_obi #(
+  .AXI4_ADDR_WIDTH(AxiCfg.AddrWidthFull),
   .AXI4_RDATA_WIDTH(AxiCfg.DataWidthFull), //64-bit
   .AXI4_WDATA_WIDTH(AxiCfg.DataWidthFull),
   .AXI4_ID_WIDTH(AxiCfg.SlvPortIdWidth),

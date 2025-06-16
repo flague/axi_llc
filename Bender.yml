@@ -85,8 +85,8 @@ sources:
       - src/vendor/dma/rtl/dma_units/dma_buffer_unit/dma_buffer_unit.sv
       - src/vendor/dma/rtl/dma.sv
       # Level 1:
-      - src/arcane_ctl/core2axi.sv
-      - src/arcane_ctl/core2axi_wrap.sv
+      - src/arcane_ctl/axi_from_obi.sv
+      - src/arcane_ctl/axi_lite_from_obi.sv
       - src/arcane_ctl/bin_to_onehot.sv
       - src/arcane_ctl/axi_llc_arcane_axi2desc.sv
       - src/arcane_ctl/axi_llc_arcane_fsm.sv
