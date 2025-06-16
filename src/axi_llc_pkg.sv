@@ -294,7 +294,8 @@ package axi_llc_pkg;
   /// Number of inputs of the `axi_llc_top` RR arbiter
   // 3 are normal inputs: AR, AW and flush
   // +2 are for SW DMA R and W channels
-  
+  localparam logic [31:0] Carus0StartAddr = 32'hF000_0000;
+
   `ifdef ARCANE_LLC
     localparam int unsigned NumArbTreeInputs = 32'd3 + 32'd2;
   `else

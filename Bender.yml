@@ -50,6 +50,7 @@ sources:
   - target: test
     include_dirs:
       - test
+      - src/vendor/dma/data
     defines:
       ARCANE_LLC: ~
       ARCANE_TEST: ~
@@ -57,6 +58,7 @@ sources:
       # Level 0
       - src/axi_llc_pkg.sv
       - src/arcane_ctl/include/obi_pkg.sv
+      - src/arcane_ctl/include/fifo_pkg.sv
       - src/axi_llc_burst_cutter.sv
       - src/axi_llc_data_way.sv
       - src/axi_llc_merge_unit.sv
@@ -71,6 +73,17 @@ sources:
       - src/hit_miss_detect/axi_llc_lock_box_bloom.sv
       - src/hit_miss_detect/axi_llc_miss_counters.sv
       - src/hit_miss_detect/axi_llc_tag_pattern_gen.sv
+      # DMA
+      - src/vendor/dma/rtl/dma_reg_pkg.sv
+      - src/vendor/dma/rtl/dma_reg_top.sv
+      #- src/vendor/dma/rtl/dma_units/dma_processing_unit.sv
+      - src/vendor/dma/rtl/dma_units/dma_read_unit.sv
+      #- src/vendor/dma/rtl/dma_units/dma_read_addr_unit.sv
+      - src/vendor/dma/rtl/dma_units/dma_write_unit.sv
+      - src/vendor/dma/rtl/dma_units/dma_buffer_unit/dma_buffer_fifos.sv
+      - src/vendor/dma/rtl/dma_units/dma_buffer_unit/dma_buffer_control.sv
+      - src/vendor/dma/rtl/dma_units/dma_buffer_unit/dma_buffer_unit.sv
+      - src/vendor/dma/rtl/dma.sv
       # Level 1:
       - src/arcane_ctl/core2axi.sv
       - src/arcane_ctl/core2axi_wrap.sv

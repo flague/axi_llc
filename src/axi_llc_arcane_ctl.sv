@@ -140,13 +140,41 @@ axi_llc_arcane_fsm i_arcane_fsm (
 //-------
 // SW DMA
 //-------
-// TODO: missing sw dma
-assign dma_read_obi_req ='0;
-assign dma_write_obi_req ='0;
-
 // TODO: check how req are treated when cache is not locked.
-// Should have a HW mechanism thatt guarantees they are gated, so that mem cannot
+// Should have a HW mechanism that guarantees they are gated, so that mem cannot
 // be compromised in those cases.
+// Can be done by the FSM.
+// What is the best way? Never gnt req on DMA if the cache is not locked
+// never forward them + assertion saying there are req to DMA regs
+// or dma_read/write_req ==1 only when cache_lock==1 (SW/HW convention)
+// and just and the req signals with the cache lock reg (for example)
+
+dma #(
+  .reg_req_t (reg_req_t),
+  .reg_rsp_t (reg_rsp_t),
+  .obi_req_t (obi_pkg::obi_req_t),
+  .obi_resp_t(obi_pkg::obi_resp_t)
+) i_arcane_dma (
+  .clk_i (clk_i),
+  .rst_ni(rst_ni),
+  .clk_gate_en_ni (1'b1), // No clock gating for now
+  .ext_dma_stop_i (1'b0), // No external stop signal
+  .hw_fifo_done_i (1'b0), // No HW FIFO done signal
+  .reg_req_i (dma_reg_req_i),
+  .reg_rsp_o (dma_reg_rsp_o),
+  .dma_read_req_o(dma_read_obi_req),
+  .dma_read_resp_i(dma_read_obi_resp),
+  .dma_write_req_o(dma_write_obi_req),
+  .dma_write_resp_i(dma_write_obi_resp),
+  .dma_addr_req_o(), // No address request // UNCONNECTED
+  .dma_addr_resp_i('0), // No address response // UNCONNECTED
+  .hw_fifo_resp_i('0),
+  .hw_fifo_req_o(), // UNCONNECTED
+  .trigger_slot_i (1'b0), // No trigger slot
+  .dma_done_intr_o(), // No DMA done interrupt // UNCONNECTED
+  .dma_window_intr_o(), // No DMA window interrupt // UNCONNECTED
+  .dma_done_o() // No DMA done signal // UNCONNECTED
+);
 
 
 //-------------------
@@ -264,5 +292,7 @@ assign dma_read_axi_resp.b        = resp_i.b;
 assign dma_read_axi_resp.b_valid  = resp_i.b_valid;
 assign dma_write_axi_resp.w_ready = resp_i.w_ready;
 
+
+// TODO: add assertions
 
 endmodule

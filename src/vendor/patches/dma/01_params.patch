@@ -1,0 +1,63 @@
+diff --git a/rtl/dma.sv b/rtl/dma.sv
+index 780615a..46bd180 100644
+--- a/rtl/dma.sv
++++ b/rtl/dma.sv
+@@ -15,7 +15,8 @@ module dma
+     parameter type reg_req_t = logic,
+     parameter type reg_rsp_t = logic,
+     parameter type obi_req_t = logic,
+-    parameter type obi_resp_t = logic
++    parameter type obi_resp_t = logic,
++    localparam int unsigned SlotNumRnd = (SLOT_NUM > 0) ? SLOT_NUM : 1
+ ) (
+     input logic clk_i,
+     input logic rst_ni,
+@@ -39,7 +40,7 @@ module dma
+     input  fifo_resp_t hw_fifo_resp_i,
+     output fifo_req_t  hw_fifo_req_o,
+ 
+-    input logic [SLOT_NUM-1:0] trigger_slot_i,
++    input logic [SlotNumRnd-1:0] trigger_slot_i,
+ 
+     output dma_done_intr_o,
+     output dma_window_intr_o,
+@@ -482,6 +483,7 @@ module dma
+ 
+   /* HW FIFO done signal override logic */
+ `ifdef HW_FIFO_MODE_EN
++  assign hw_fifo_mode = reg2hw.hw_fifo_en.q;
+   assign dma_write_done_override = (write_buffer_empty & hw_fifo_done_i & hw_fifo_mode) || ext_dma_stop_i;
+ `else
+   assign dma_write_done_override = ext_dma_stop_i;
+@@ -573,10 +575,10 @@ module dma
+ 
+   assign circular_mode = reg2hw.mode.q == 1;
+   assign address_mode = reg2hw.mode.q == 2;
+-  assign hw_fifo_mode = reg2hw.hw_fifo_en.q;
+ 
+-  assign wait_for_rx = |(reg2hw.slot.rx_trigger_slot.q[SLOT_NUM-1:0] & (~trigger_slot_i));
+-  assign wait_for_tx = |(reg2hw.slot.tx_trigger_slot.q[SLOT_NUM-1:0] & (~trigger_slot_i));
++
++  assign wait_for_rx = |(reg2hw.slot.rx_trigger_slot.q[SlotNumRnd-1:0] & (~trigger_slot_i));
++  assign wait_for_tx = |(reg2hw.slot.tx_trigger_slot.q[SlotNumRnd-1:0] & (~trigger_slot_i));
+ 
+   /* Logic for window counter */
+   //TODO: is it really necessary? Do we need to write into a register how many events are done?
+diff --git a/rtl/dma_units/dma_buffer_unit/dma_buffer_unit.sv b/rtl/dma_units/dma_buffer_unit/dma_buffer_unit.sv
+index 622a96e..e3dd64e 100644
+--- a/rtl/dma_units/dma_buffer_unit/dma_buffer_unit.sv
++++ b/rtl/dma_units/dma_buffer_unit/dma_buffer_unit.sv
+@@ -84,8 +84,11 @@ module dma_buffer_unit
+       .read_buffer_output_o(read_buffer_output)
+   );
+ 
+-  assign hw_fifo_mode = reg2hw_i.hw_fifo_en.q;
+-
++  `ifdef HW_FIFO_MODE_EN
++    assign hw_fifo_mode = reg2hw_i.hw_fifo_en.q;
++  `else
++    assign hw_fifo_mode = 1'b0; // HW FIFO mode disabled
++  `endif
+   /* Due to the read FIFOs structure, thie pop signal is actually overridden by read_fifo_pop */
+   assign read_fifo_req.pop = 1'b0;
+   assign read_buffer_pop = read_buffer_req_i.pop;
