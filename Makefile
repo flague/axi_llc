@@ -67,22 +67,32 @@ help:
 .PHONY: llc-gen
 llc-gen: $(LLC_GEN_LOCK)
 $(LLC_GEN_LOCK): $(LLC_GEN_CFG) $(LLC_GEN_TPL) $(BUILD_DIR)/
-	python3 $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
+	$(PYTHON) $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
 		--outdir $(ROOT)/test/ \
 		--tpl-sv $(ROOT)/test/tb_axi_llc.sv.tpl
-	python3 $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
+	$(PYTHON) $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
 		--outdir $(ROOT)/data \
 		--tpl-sv $(ROOT)/data/axi_llc_status_regs.hjson.tpl
-	python3 $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
+	$(PYTHON) $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
 		--outdir $(ROOT)/src \
 		--tpl-sv $(ROOT)/src/axi_llc_status_reg_wrap.sv.tpl
-		python3 $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
+	$(PYTHON) $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
 		--outdir $(ROOT)/data \
 		--tpl-sv $(ROOT)/data/axi_llc_status_tag_regs.hjson.tpl
-	python3 $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
+	$(PYTHON) $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
 		--outdir $(ROOT)/src \
 		--tpl-sv $(ROOT)/src/axi_llc_status_tag_reg_wrap.sv.tpl
-	
+	$(PYTHON) $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
+		--outdir $(ROOT)/src/vendor/dma/data/ \
+		--tpl-sv $(ROOT)/src/vendor/dma/data/dma.hjson.tpl
+	$(PYTHON) $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
+		--outdir $(ROOT)/src/vendor/dma/data/ \
+		--tpl-sv $(ROOT)/src/vendor/dma/data/dma.hjson.tpl
+	$(PYTHON) $(ROOT)/util/llc_gen.py $(LLC_GEN_OPTS) \
+		--outdir $(ROOT)/src/vendor/dma/data/ \
+		--tpl-sv $(ROOT)/src/vendor/dma/data/dma_conf.svh.tpl
+
+
 
 #sh $(ROOT)/hw/ip/cache_table/gen_axi_llc_status_regs.sh $(REGGEN_PATH)
 # --------------
@@ -94,8 +104,10 @@ regs: llc-gen
 	$(REGGEN) --cdefines --outfile sw/include/axi_llc_regs.h data/axi_llc_regs.hjson
 	$(REGGEN) -r --outdir src/ data/axi_llc_status_regs.hjson
 	$(REGGEN) --cdefines --outfile sw/include/axi_llc_status_regs.h data/axi_llc_status_regs.hjson
-		$(REGGEN) -r --outdir src/ data/axi_llc_status_tag_regs.hjson
+	$(REGGEN) -r --outdir src/ data/axi_llc_status_tag_regs.hjson
 	$(REGGEN) --cdefines --outfile sw/include/axi_llc_status_tag_regs.h data/axi_llc_status_tag_regs.hjson
+	$(REGGEN) -r --outdir src/vendor/dma/rtl src/vendor/dma/data/dma.hjson
+	$(REGGEN) --cdefines --outfile sw/include/dma.h src/vendor/dma/data/dma.hjson
 
 # ---------
 # Utilities
