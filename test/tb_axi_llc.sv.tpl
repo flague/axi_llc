@@ -192,9 +192,9 @@ module tb_axi_llc #(
   // Tb signals
   logic enable_counters, print_counters, enable_progress;
   `ifdef ARCANE_TEST
-  logic ecpu_lock_t;
-  logic ecpu_lock_req_t;
-  logic arcane_lock_t;
+  logic ecpu_lock_tb;
+  logic ecpu_lock_req_tb;
+  logic arcane_lock_tb;
   `endif
 
   ///////////////////////
@@ -349,9 +349,9 @@ module tb_axi_llc #(
       // Ensure flush is finished
       repeat (10) @(posedge clk);
       axi_master.run(10,10);
-      acquire_free_lock(ecpu_lock_req_t, arcane_lock_t, ecpu_lock_t);
+      acquire_free_lock();
       repeat (100) @(posedge clk);
-      acquire_free_lock(ecpu_lock_req_t, arcane_lock_t, ecpu_lock_t);
+      acquire_free_lock();
       $display("%0t> Unock succeded", $time);
       axi_master.run(2,2);
       flush_all(reg_conf_driver);
@@ -423,8 +423,8 @@ module tb_axi_llc #(
     axi_slave.reset();
     // Initialize test signals arcane
     `ifdef ARCANE_TEST
-      ecpu_lock_t= 1'b0;
-      ecpu_lock_req_t = 1'b0;
+      ecpu_lock_tb= 1'b0;
+      ecpu_lock_req_tb = 1'b0;
     `endif
     @(posedge rst_n);
     axi_slave.run();
@@ -475,17 +475,23 @@ module tb_axi_llc #(
   //------------
   // ARCANE test
   //------------
-  task acquire_free_lock(logic lock_req, logic lock_gnt, logic lock_reg);
-    if (lock_req) begin
-      $display("%0t> Waiting for lock", $time);
-      do begin
-        @(posedge clk);
-      end while (!lock_gnt);
+  //------------
+  // ARCANE test
+  //------------
+  task acquire_free_lock();
+    ecpu_lock_req_tb = 1'b1; // Request the lock
+    $display("%0t> Waiting for lock", $time);
+    do begin
+      @(posedge clk);
+      //$display("%0t> Checking lock_gnt: %b", $time, lock_gnt);
+    end while (!arcane_lock_tb);
+    ecpu_lock_req_tb = 1'b0; // Release the lock request
+    // Update the lock register`
+    ecpu_lock_tb = ~ecpu_lock_tb; // Toggle the lock register
+    if (ecpu_lock_tb)
       $display("%0t> Lock acquired", $time);
-      lock_req = 1'b0; // Release the lock request
-      // Update the lock register`
-      lock_reg = ~lock_reg; // Toggle the lock register
-    end
+    else 
+      $display("%0t> Lock released", $time);
   endtask : acquire_free_lock
 
 
@@ -535,10 +541,10 @@ module tb_axi_llc #(
       .arcane_dma_reg_rsp_o(),
       .arcane_status_reg_req_i('0),
       .arcane_status_reg_rsp_o(),
-      .ecpu_lock_i(ecpu_lock_t),
-      .ecpu_lock_req_i(ecpu_lock_req_t),
-      .arcane_lock_o(arcane_lock_t),
-      .ecpu_src_dst_i(ecpu_src_dst_t)
+      .ecpu_lock_i(ecpu_lock_tb),
+      .ecpu_lock_req_i(ecpu_lock_req_tb),
+      .arcane_lock_o(arcane_lock_tb),
+      .ecpu_src_dst_i('0)
     `else
     .axi_llc_events_o    ( llc_events                             )
     `endif

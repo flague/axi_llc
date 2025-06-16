@@ -1,10 +1,12 @@
 # Read command line argument for simulation time
+# Set default value if $1 is empty
 if [ -z "$1" ]; then
-  echo "Usage: $0 <simulation_time>"
-  exit 1
+  simulation_time=60  # default value, change as needed
+  echo "No simulation time provided. Using default: $simulation_time"
+else
+  simulation_time=$1
 fi
-
-export SIM_TIME=$1
+export SIM_TIME=$simulation_time
 
 
 # Source Questa environment
