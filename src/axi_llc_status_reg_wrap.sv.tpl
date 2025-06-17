@@ -171,4 +171,22 @@ module axi_llc_status_reg_wrap #(
     .devmode_i(1'b1)
   );
 
+  //-----------
+  // Assertions
+  //-----------
+  `ifndef VERILATOR
+  `ifndef SYNTHESIS
+  // check there is never a request from eCPU and a req to the tc_sram at the same time
+  check_no_conflict: assert property (
+    @(posedge clk_i) disable iff (!rst_ni)
+    !(reg_req_i.req && ram_hw_req)) else $fatal(1, "There is a conflict between the eCPU request and the tc_sram request!");
+  // Less restrictive assertions on requests
+  // Do not exclude concurrent read
+  check_no_conflict_w: assert property (
+    @(posedge clk_i) disable iff (!rst_ni)
+    !(reg_req_i.req && reg_req_i.wdata && ram_hw_req && ~(|ram_we_i)) || !(reg_req_i.req && !reg_req_i.wdata && ram_hw_req && |ram_we_i)) 
+    else $fatal(1, "There is a conflict between the eCPU write request and the tc_sram request!");
+  `endif
+  `endif
+
 endmodule

@@ -95,12 +95,17 @@ module axi_llc_evict_box #(
     assign onehot_ind_q = 1'b1;
   end
 
-  // check if the output really is onehot
+  //-----------
+  // Assertions
+  //-----------
   // pragma translate_off
   `ifndef VERILATOR
+  // check if the output really is onehot
   check_onehot: assert property ( @(posedge clk_i) disable iff (~rst_ni) $onehot0(way_ind_o)) else
       $fatal(1, "More than two bit set in the one-hot signal");
+  check_cmpt_not_picked: assert property (@(posedge clk_i) disable iff (~rst_ni)
+    (req_i && valid_o) |-> (tag_cmpt_i & way_ind_o) == '0
+  ) else $fatal(1, "A cmpt line was picked for eviction from evict box!");
   `endif
-  // TODO: add assertion to check that busy cmpt lines are never picked
   // pragma translate_on
 endmodule

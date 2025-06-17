@@ -595,10 +595,29 @@ module axi_llc_hit_miss #(
     valid_o : assert property(
       @(posedge clk_i) disable iff (!rst_ni) !(miss_valid_o & hit_valid_o))
       else $fatal (1, "Duplicated descriptors, both valid outs are active.");
-
     detect_way_onehot : assert property(
       @(posedge clk_i) disable iff (!rst_ni) $onehot0(desc_o.way_ind))
       else $fatal(1, "[hit_miss.desc_o.way_ind] More than two bit set in the one-hot signal!");
+    check_allocsrc_idx_onehot: assert property(
+      @(posedge clk_i) disable iff (!rst_ni)
+      (desc_i.alloc_src && desc_i.rw) -> $onehot0(desc_i.way_ind))
+      else $fatal(1, "[hit_miss.desc_i.way_ind] More than one bit set in the one-hot signal!");
+    check_allocsrc_indicator_onehot: assert property(
+      @(posedge clk_i) disable iff (!rst_ni)
+      (desc_i.alloc_src && desc_i.rw) -> $onehot0(store_req.indicator))
+      else $fatal(1, "[hit_miss.store_req.indicator] More than one bit set in the one-hot signal!");
+    check_writeback_idx_onehot: assert property(
+      @(posedge clk_i) disable iff (!rst_ni)
+      (desc_i.writeback && ~desc_i.rw) -> $onehot0(desc_i.way_ind))
+      else $fatal(1, "[hit_miss.desc_i.way_ind] More than one bit set in the one-hot signal!");
+    check_writeback_indicator_onehot: assert property(
+      @(posedge clk_i) disable iff (!rst_ni)
+      (desc_i.writeback && ~desc_i.rw) -> $onehot0(store_req.indicator))
+      else $fatal(1, "[hit_miss.store_req.indicator] More than one bit set in the one-hot signal!");
+
+
+      // if alloc_src or writeback and rw, the desc_i.way_idx is onehot (already correctly set)
+      // $onehot0(indicator)
   `endif
   // pragma translate_on
 endmodule

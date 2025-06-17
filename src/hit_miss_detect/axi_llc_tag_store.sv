@@ -638,7 +638,9 @@ module axi_llc_tag_store #(
     .data_o  ( res_o     )
   );
 
+  //-----------
   // Assertions
+  //-----------
   // pragma translate_off
   `ifndef VERILATOR
   onehot_hit:  assert property ( @(posedge clk_i) disable iff (!rst_ni)
@@ -650,11 +652,26 @@ module axi_llc_tag_store #(
   // trigger warning if output valid gets deasserted without ready
   check_valid: assert property ( @(posedge clk_i) disable iff (!rst_ni)
       (res_valid && !res_ready) |=> res_valid) else
-      $warning("Valid was deasserted, even when no ready was set.");
-  check_all_spm: assert property ( @(posedge clk_i) disable iff (~rst_ni)
+      $fatal("Valid was deasserted, even when no ready was set.");
+  check_all_spm: assert property ( @(posedge clk_i) disable iff (!rst_ni)
       ((flushed_i == {Cfg.SetAssociativity{1'b1}}) |-> (evict_req == 1'b0))) else
       $fatal(1, "Should not have a request for the evict box, if all ways are flushed!");
+  check_allocsrcw_indicator: assert property ( @(posedge clk_i) disable iff (!rst_ni)
+      (req_q.mode == axi_llc_pkg::AllocSrcW -> $onehot0(req_q.indicator)) else
+      $fatal(1, "The AllocSrcW request should have a one-hot indicator!");
+  //(req_i.mode == axi_llc_pkg::AllocSrcW && valid_i -> $onehot0(req_i.indicator)))) else
+  check_allocsrcw_cmpt: assert property ( @(posedge clk_i) disable iff  (!rst_ni)
+      (req_q.mode == axi_llc_pkg::AllocSrcW && res_valid && res_ready -> ram_wdata.cmpt)) else
+      $fatal(1, "The AllocSrcW request should write the cmpt bit to 1!");
+  check_wb_indicator: assert property ( @(posedge clk_i) disable iff (!rst_ni)
+      (req_q.mode == axi_llc_pkg::WritebackR -> $onehot0(req_q.indicator)) else
+      $fatal(1, "The WritebackR request should have a one-hot indicator!");
+  //(req_i.mode == axi_llc_pkg::WritebackR && valid_i -> $onehot0(req_i.indicator)))) else
+  check_wb_no_req: assert property ( @(posedge clk_i) disable iff (!rst_ni)
+      ((req_q.mode == axi_llc_pkg::WritebackR || (req_i.mode == axi_llc_pkg::WritebackR && valid_i)) ->
+       ram_req == way_ind_t'(0))) else
+      $fatal(1, "The WritebackR request should not have a request to the tag macros!");
   `endif
-  // TODO: add assertion to verify busy state
+  // TODO: Check that both cmpt and valid are set to 1
   // pragma translate_on
 endmodule
