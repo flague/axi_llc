@@ -671,6 +671,22 @@ module axi_llc_tag_store #(
       ((req_q.mode == axi_llc_pkg::WritebackR || (req_i.mode == axi_llc_pkg::WritebackR && valid_i)) ->
        ram_req == way_ind_t'(0))) else
       $fatal(1, "The WritebackR request should not have a request to the tag macros!");
+  // Check interaction between spm and cache lock
+  // Ensure there is never a alloc_Srcw req to a line that is SPM locked
+  check_spm_allocsrc: assert property ( @(posedge clk_i) disable iff (!rst_ni)
+      (req_i.mode == axi_llc_pkg::AllocSrcW && valid_i) ->
+       (req_i.indicator & spm_lock_i) == way_ind_t'(0)) else
+      $fatal(1, "The AllocSrcW request should not be made to a SPM locked way!");
+  check_spm_writeback: assert property ( @(posedge clk_i) disable iff (!rst_ni)
+      (req_i.mode == axi_llc_pkg::Writeback && valid_i) ->
+       (req_i.indicator & spm_lock_i) == way_ind_t'(0)) else
+      $fatal(1, "The Writeback request should not be made to a SPM locked way!");
+  // Cannot check that writeback reads from a line in cmpt as the status of the line is not read
+  //check_writeback_req: assert property ( @(posedge clk_i) disable iff (!rst_ni)
+  //    (req_i.mode == axi_llc_pkg::Writeback && valid_i) ->
+  //     (req_i.indicator & spm_lock_i) == way_ind_t'(0)) else
+  //    $fatal(1, "A writeback request should always be made to a cmpt line!");
+  
   `endif
   // TODO: Check that both cmpt and valid are set to 1
   // pragma translate_on
